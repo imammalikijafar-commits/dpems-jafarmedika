@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { motion, useInView } from 'framer-motion'
 import { cn } from '@/lib/utils'
@@ -32,6 +32,9 @@ import {
   Stethoscope,
   Leaf,
   Cross,
+  LogIn,
+  Menu,
+  X,
 } from 'lucide-react'
 
 /* ──────────────────────── animation helpers ──────────────────────── */
@@ -116,7 +119,7 @@ const staggerItem = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] },
+    transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
   },
 }
 
@@ -168,17 +171,84 @@ function SectionHeader({
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   SECTION 1 — HERO
+   SECTION 1 — HERO (includes Navbar)
    ════════════════════════════════════════════════════════════════════ */
 
 function HeroSection() {
+  const [mobileOpen, setMobileOpen] = useState(false)
   return (
-    <header className="relative isolate overflow-hidden bg-gradient-to-br from-emerald-50 via-background to-emerald-100/60 dark:from-emerald-950/40 dark:via-background dark:to-emerald-900/20">
+    <header className="relative overflow-hidden bg-linear-to-br from-emerald-50 via-background to-emerald-100/60 dark:from-emerald-950/40 dark:via-background dark:to-emerald-900/20">
+      {/* Fixed Navbar */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-primary/10">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between">
+            {/* Brand */}
+            <Link href="/" className="flex items-center gap-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                <Cross className="h-5 w-5 text-primary" />
+              </span>
+              <div className="hidden sm:block">
+                <p className="text-sm font-bold leading-tight text-foreground">DPEMS</p>
+                <p className="text-[11px] text-muted-foreground">RSU Ja&apos;far Medika</p>
+              </div>
+            </Link>
+
+            {/* Desktop Links */}
+            <div className="hidden md:flex items-center gap-1">
+              <Link href="#fitur" className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted">
+                Fitur
+              </Link>
+              <Link href="#cara-kerja" className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted">
+                Cara Kerja
+              </Link>
+              <Link href="/survey/consent" className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted">
+                Isi Survei
+              </Link>
+            </div>
+
+            {/* CTA + Mobile Toggle */}
+            <div className="flex items-center gap-2">
+              <Button asChild size="sm" className="hidden sm:inline-flex gap-1.5 bg-primary hover:bg-primary/90">
+                <Link href="/login">
+                  <LogIn className="h-4 w-4" />
+                  Dashboard
+                </Link>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden"
+                onClick={() => setMobileOpen(!mobileOpen)}
+              >
+                {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </Button>
+            </div>
+          </div>
+
+          {/* Mobile Menu */}
+          {mobileOpen && (
+            <div className="md:hidden border-t border-primary/10 py-3 space-y-1">
+              <Link href="#fitur" onClick={() => setMobileOpen(false)} className="block px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted">
+                Fitur
+              </Link>
+              <Link href="#cara-kerja" onClick={() => setMobileOpen(false)} className="block px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted">
+                Cara Kerja
+              </Link>
+              <Link href="/survey/consent" onClick={() => setMobileOpen(false)} className="block px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted">
+                Isi Survei
+              </Link>
+              <Link href="/login" onClick={() => setMobileOpen(false)} className="block px-3 py-2 text-sm font-medium text-primary rounded-lg hover:bg-primary/5">
+                Dashboard Analitik
+              </Link>
+            </div>
+          )}
+        </div>
+      </nav>
       {/* decorative blobs */}
       <div className="pointer-events-none absolute -top-24 -right-24 h-[420px] w-[420px] rounded-full bg-emerald-200/40 blur-3xl dark:bg-emerald-800/20" />
       <div className="pointer-events-none absolute -bottom-32 -left-32 h-[500px] w-[500px] rounded-full bg-emerald-100/50 blur-3xl dark:bg-emerald-900/15" />
 
-      <div className="relative mx-auto flex min-h-[92vh] max-w-6xl flex-col items-center justify-center px-4 py-20 text-center sm:px-6 lg:px-8">
+      <div className="relative mx-auto flex min-h-[92vh] max-w-6xl flex-col items-center justify-center px-4 pt-24 pb-20 text-center sm:px-6 lg:px-8">
         {/* hospital badge */}
         <FadeIn delay={0}>
           <div className="mb-6 flex items-center justify-center gap-2">
@@ -201,23 +271,9 @@ function HeroSection() {
               variant="outline"
               className="gap-1.5 border-primary/20 bg-primary/5 px-3 py-1"
             >
-              <Stethoscope className="h-3.5 w-3.5 text-primary" />
-              Akupunktur
-            </Badge>
-            <Badge
-              variant="outline"
-              className="gap-1.5 border-primary/20 bg-primary/5 px-3 py-1"
-            >
               <Leaf className="h-3.5 w-3.5 text-primary" />
-              Herbal &amp; Kelor
-            </Badge>
-            <Badge
-              variant="outline"
-              className="gap-1.5 border-primary/20 bg-primary/5 px-3 py-1"
-            >
-              <Heart className="h-3.5 w-3.5 text-primary" />
-              Stroke &amp; Nyeri
-            </Badge>
+              Akupuntur &amp; Herbal
+            </Badge>   
           </div>
         </FadeIn>
 
@@ -225,7 +281,7 @@ function HeroSection() {
         <FadeIn delay={0.15}>
           <h1 className="mx-auto max-w-4xl text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl md:text-6xl lg:text-[3.5rem]">
             Digital Patient Experience{' '}
-            <span className="bg-gradient-to-r from-primary via-emerald-600 to-primary bg-clip-text text-transparent">
+            <span className="bg-linear-to-r from-primary via-emerald-600 to-primary bg-clip-text text-transparent">
               Monitoring System
             </span>
           </h1>
@@ -241,63 +297,23 @@ function HeroSection() {
         {/* CTA buttons */}
         <FadeIn delay={0.35}>
           <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
-            <Button asChild size="lg" className="h-12 gap-2 px-8 text-base font-semibold shadow-lg shadow-primary/25">
-              <Link href="/dashboard">
-                <BarChart3 className="h-5 w-5" />
-                Dashboard Analitik
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
             <Button
               asChild
               variant="outline"
               size="lg"
               className="h-12 gap-2 px-8 text-base font-semibold"
             >
-              <Link href="/survey/poli-umum">
+              <Link href="/survey/consent">
                 <ClipboardList className="h-5 w-5" />
                 Isi Survei
               </Link>
             </Button>
           </div>
         </FadeIn>
-
-        {/* floating icons */}
-        <FadeIn delay={0.5}>
-          <div className="mt-14 flex items-center justify-center gap-3 sm:gap-5">
-            {[Activity, Shield, Heart, BarChart3].map((Icon, i) => (
-              <motion.div
-                key={i}
-                animate={{ y: [0, -6, 0] }}
-                transition={{
-                  duration: 2.5,
-                  repeat: Infinity,
-                  delay: i * 0.4,
-                  ease: 'easeInOut',
-                }}
-                className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary sm:h-14 sm:w-14"
-              >
-                <Icon className="h-6 w-6 sm:h-7 sm:w-7" />
-              </motion.div>
-            ))}
-          </div>
-        </FadeIn>
       </div>
 
-      {/* bottom wave */}
-      <div className="absolute bottom-0 left-0 right-0">
-        <svg
-          viewBox="0 0 1440 60"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className="block w-full"
-        >
-          <path
-            d="M0 60L60 55C120 50 240 40 360 35C480 30 600 30 720 33.3C840 36.7 960 43.3 1080 45C1200 46.7 1320 43.3 1380 41.7L1440 40V60H1380C1320 60 1200 60 1080 60C960 60 840 60 720 60C600 60 480 60 360 60C240 60 120 60 60 60H0Z"
-            className="fill-background"
-          />
-        </svg>
-      </div>
+      {/* straight bottom edge */}
+      <div className="absolute bottom-0 left-0 right-0 h-1 bg-background" />
     </header>
   )
 }
@@ -306,11 +322,11 @@ function HeroSection() {
    SECTION 2 — KEY METRICS
    ════════════════════════════════════════════════════════════════════ */
 
-const metrics = [
+const FALLBACK_METRICS = [
   {
     icon: Users,
     label: 'Total Responden',
-    value: '105',
+    value: '-',
     suffix: 'pasien',
     color: 'text-emerald-600 dark:text-emerald-400',
     bg: 'bg-emerald-50 dark:bg-emerald-950/50',
@@ -318,7 +334,7 @@ const metrics = [
   {
     icon: TrendingDown,
     label: 'Rata-rata Pengurangan Nyeri',
-    value: '42',
+    value: '-',
     suffix: '%',
     color: 'text-emerald-600 dark:text-emerald-400',
     bg: 'bg-emerald-50 dark:bg-emerald-950/50',
@@ -326,7 +342,7 @@ const metrics = [
   {
     icon: Star,
     label: 'NPS Score',
-    value: '+32',
+    value: '-',
     suffix: '',
     color: 'text-amber-600 dark:text-amber-400',
     bg: 'bg-amber-50 dark:bg-amber-950/50',
@@ -334,7 +350,7 @@ const metrics = [
   {
     icon: Heart,
     label: 'Tingkat Kepuasan',
-    value: '4.2',
+    value: '-',
     suffix: '/5',
     color: 'text-rose-500 dark:text-rose-400',
     bg: 'bg-rose-50 dark:bg-rose-950/50',
@@ -342,6 +358,53 @@ const metrics = [
 ]
 
 function MetricsSection() {
+  const [metrics, setMetrics] = useState(FALLBACK_METRICS)
+
+  useEffect(() => {
+    fetch('/api/dashboard/data?period=30')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) return
+        setMetrics([
+          {
+            icon: Users,
+            label: 'Total Responden',
+            value: data.totalSurveys?.toString() ?? '-',
+            suffix: 'pasien',
+            color: 'text-emerald-600 dark:text-emerald-400',
+            bg: 'bg-emerald-50 dark:bg-emerald-950/50',
+          },
+          {
+            icon: TrendingDown,
+            label: 'Rata-rata Pengurangan Nyeri',
+            value: data.avgPainReduction?.toString() ?? '-',
+            suffix: '%',
+            color: 'text-emerald-600 dark:text-emerald-400',
+            bg: 'bg-emerald-50 dark:bg-emerald-950/50',
+          },
+          {
+            icon: Star,
+            label: 'NPS Score',
+            value: data.nps?.score != null
+              ? (data.nps.score >= 0 ? '+' : '') + data.nps.score
+              : '-',
+            suffix: '',
+            color: 'text-amber-600 dark:text-amber-400',
+            bg: 'bg-amber-50 dark:bg-amber-950/50',
+          },
+          {
+            icon: Heart,
+            label: 'Tingkat Kepuasan',
+            value: data.overallSatisfaction?.toString() ?? '-',
+            suffix: '/5',
+            color: 'text-rose-500 dark:text-rose-400',
+            bg: 'bg-rose-50 dark:bg-rose-950/50',
+          },
+        ])
+      })
+      .catch(() => { /* keep fallback */ })
+  }, [])
+
   return (
     <Section className="bg-background">
       <SectionHeader
@@ -378,7 +441,7 @@ function MetricsSection() {
                 </div>
               </CardContent>
               {/* subtle accent line */}
-              <div className="absolute bottom-0 left-0 h-[3px] w-0 bg-gradient-to-r from-primary to-emerald-400 transition-all duration-500 group-hover:w-full" />
+              <div className="absolute bottom-0 left-0 h-[3px] w-0 bg-linear-to-r from-primary to-emerald-400 transition-all duration-500 group-hover:w-full" />
             </Card>
           </motion.div>
         ))}
@@ -438,7 +501,7 @@ const features = [
 
 function FeaturesSection() {
   return (
-    <Section className="bg-muted/40">
+    <Section className="bg-muted/40" id="fitur">
       <SectionHeader
         badge="Fitur Unggulan"
         title="Sistem Monitoring Komprehensif"
@@ -473,7 +536,7 @@ function FeaturesSection() {
                 ))}
               </CardContent>
               {/* bottom accent */}
-              <div className="absolute bottom-0 left-0 h-[3px] w-0 bg-gradient-to-r from-primary to-emerald-400 transition-all duration-500 group-hover:w-full" />
+              <div className="absolute bottom-0 left-0 h-[3px] w-0 bg-linear-to-r from-primary to-emerald-400 transition-all duration-500 group-hover:w-full" />
             </Card>
           </motion.div>
         ))}
@@ -512,7 +575,7 @@ const steps = [
 
 function HowItWorksSection() {
   return (
-    <Section className="bg-background">
+    <Section className="bg-background" id="cara-kerja">
       <SectionHeader
         badge="Cara Kerja"
         title="Sederhana, Cepat, & Efektif"
@@ -521,7 +584,7 @@ function HowItWorksSection() {
 
       <div className="relative">
         {/* connector line (desktop) */}
-        <div className="absolute left-1/2 top-0 hidden h-full w-px -translate-x-1/2 bg-gradient-to-b from-primary/20 via-primary/40 to-primary/20 lg:block" />
+        <div className="absolute left-1/2 top-0 hidden h-full w-px -translate-x-1/2 bg-linear-to-b from-primary/20 via-primary/40 to-primary/20 lg:block" />
 
         <StaggerContainer className="grid gap-8 lg:grid-cols-3 lg:gap-6">
           {steps.map((s, i) => (
@@ -534,7 +597,7 @@ function HowItWorksSection() {
                   </div>
 
                   {/* icon */}
-                  <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 text-primary transition-transform duration-300 group-hover:scale-110">
+                  <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-primary/10 to-primary/5 text-primary transition-transform duration-300 group-hover:scale-110">
                     <s.icon className="h-8 w-8" />
                   </div>
 
@@ -646,7 +709,7 @@ function FooterSection() {
 
 export default function Home() {
   return (
-    <main className="min-h-screen scroll-smooth">
+    <main className="min-h-screen scroll-smooth" suppressHydrationWarning>
       <HeroSection />
       <MetricsSection />
       <FeaturesSection />

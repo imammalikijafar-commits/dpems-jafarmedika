@@ -9,8 +9,9 @@ interface LikertScaleProps {
   disabled?: boolean
 }
 
-const defaultLabels = ['😐', '😕', '😐', '😊', '😍']
-const defaultText = ['Sangat Tidak Puas', 'Tidak Puas', 'Cukup', 'Puas', 'Sangat Puas']
+const defaultLabels = ['😞', '😕', '😐', '😊', '😍']
+// Text matching Kuesioner SERVQUAL: 1 = Sangat Tidak Setuju ... 5 = Sangat Setuju
+const defaultText = ['Sangat Tidak Setuju', 'Tidak Setuju', 'Netral', 'Setuju', 'Sangat Setuju']
 
 export default function LikertScale({
   value,

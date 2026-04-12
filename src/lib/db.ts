@@ -131,3 +131,132 @@ export async function createAlert(alert: {
   if (error) throw new Error(`Failed to create alert: ${error.message}`)
   return data as Alert
 }
+
+// --- Paginated & Export Surveys ---
+
+export interface SurveyFilterParams {
+  search?: string
+  dateFrom?: string
+  dateTo?: string
+  gender?: string
+  condition_type?: string
+  npsMin?: number
+  npsMax?: number
+  page?: number
+  pageSize?: number
+  sortBy?: string
+  sortDir?: string
+}
+
+export async function getSurveysPaginated(params: SurveyFilterParams): Promise<{
+  surveys: (Survey & { units: Unit })[]
+  total: number
+}> {
+  const {
+    search,
+    dateFrom,
+    dateTo,
+    gender,
+    condition_type,
+    npsMin,
+    npsMax,
+    page = 1,
+    pageSize = 10,
+    sortBy = 'submitted_at',
+    sortDir = 'desc',
+  } = params
+
+  const safePageSize = Math.min(Math.max(pageSize, 1), 100)
+  const safePage = Math.max(page, 1)
+  const from = (safePage - 1) * safePageSize
+  const to = from + safePageSize - 1
+
+  // Build query
+  let query = getAdmin()
+    .from('surveys')
+    .select('*, units(*)', { count: 'exact', head: false })
+
+  // Apply filters
+  if (search) {
+    query = query.or(`best_experience.ilike.%${search}%,improvement_suggestion.ilike.%${search}%,testimonial.ilike.%${search}%`)
+  }
+  if (dateFrom) {
+    query = query.gte('submitted_at', dateFrom)
+  }
+  if (dateTo) {
+    query = query.lte('submitted_at', dateTo + 'T23:59:59')
+  }
+  if (gender) {
+    query = query.eq('gender', gender)
+  }
+  if (condition_type) {
+    query = query.eq('condition_type', condition_type)
+  }
+  if (npsMin !== undefined && npsMin !== null) {
+    query = query.gte('nps_score', npsMin)
+  }
+  if (npsMax !== undefined && npsMax !== null) {
+    query = query.lte('nps_score', npsMax)
+  }
+
+  // Validate sort column to prevent injection
+  const allowedSortColumns = ['submitted_at', 'nps_score', 'pain_level_before', 'pain_level_after', 'tangibles', 'reliability', 'responsiveness', 'assurance', 'empathy', 'age_range', 'gender']
+  const safeSortBy = allowedSortColumns.includes(sortBy) ? sortBy : 'submitted_at'
+  const safeSortDir = sortDir === 'asc' ? true : false
+
+  query = query
+    .order(safeSortBy, { ascending: safeSortDir })
+    .range(from, to)
+
+  const { data, error, count } = await query
+
+  if (error) throw new Error(`Failed to fetch paginated surveys: ${error.message}`)
+  return {
+    surveys: (data || []) as (Survey & { units: Unit })[],
+    total: count || 0,
+  }
+}
+
+export async function getSurveysExport(params: Omit<SurveyFilterParams, 'page' | 'pageSize' | 'sortBy' | 'sortDir'>): Promise<(Survey & { units: Unit })[]> {
+  const {
+    search,
+    dateFrom,
+    dateTo,
+    gender,
+    condition_type,
+    npsMin,
+    npsMax,
+  } = params
+
+  let query = getAdmin()
+    .from('surveys')
+    .select('*, units(*)')
+
+  if (search) {
+    query = query.or(`best_experience.ilike.%${search}%,improvement_suggestion.ilike.%${search}%,testimonial.ilike.%${search}%`)
+  }
+  if (dateFrom) {
+    query = query.gte('submitted_at', dateFrom)
+  }
+  if (dateTo) {
+    query = query.lte('submitted_at', dateTo + 'T23:59:59')
+  }
+  if (gender) {
+    query = query.eq('gender', gender)
+  }
+  if (condition_type) {
+    query = query.eq('condition_type', condition_type)
+  }
+  if (npsMin !== undefined && npsMin !== null) {
+    query = query.gte('nps_score', npsMin)
+  }
+  if (npsMax !== undefined && npsMax !== null) {
+    query = query.lte('nps_score', npsMax)
+  }
+
+  query = query.order('submitted_at', { ascending: false })
+
+  const { data, error } = await query
+  if (error) throw new Error(`Failed to fetch surveys for export: ${error.message}`)
+  return (data || []) as (Survey & { units: Unit })[]
+}

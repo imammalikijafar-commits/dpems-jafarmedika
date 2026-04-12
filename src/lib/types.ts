@@ -1,6 +1,6 @@
 // ============================================================
 // DPEMS Type Definitions
-// Matching Supabase Schema v1.0.1
+// Matching Supabase Schema v1.1.0 (Kuesioner Integrative Medicine)
 // RSU Ja'far Medika Karanganyar
 // ============================================================
 
@@ -35,36 +35,70 @@ export interface Unit {
 export interface Survey {
   id: string
   unit_id: string
-  // Demographics
+
+  // Demographics (Bagian A)
   age_range: string | null
   gender: string | null
+  education: string | null
+  occupation: string | null
   patient_type: string | null
-  visit_count: number | null
-  treatment_type: string | null
-  // SERVQUAL Dimensions (avg per dimension, 1-5)
+  condition_type: string | null
+  visit_count: string | null
+  referral_source: string | null
+
+  // SERVQUAL Dimensions (aggregated averages, Bagian B)
   tangibles: number | null
   reliability: number | null
   responsiveness: number | null
   assurance: number | null
   empathy: number | null
-  // Clinical Outcomes
+
+  // Herbal Service (Bagian C)
+  herbal_prescribed: boolean | null
+  herb_explanation: number | null
+  herb_usage_guide: number | null
+  herb_safety_trust: number | null
+  herb_availability: number | null
+  herb_affordability: number | null
+  herb_pharmacist: number | null
+
+  // Adjuvant Therapy (Bagian D)
+  adjuvant_role: string | null
+  info_acupuncture_support: number | null
+  info_understanding: number | null
+  info_sufficient: number | null
+  info_comfortable_asking: number | null
+
+  // Clinical Outcomes (Bagian E)
   pain_level_before: number | null
   pain_level_after: number | null
-  functional_improvement: string | null
-  // Spiritual & Cultural
-  spiritual_comfort: number | null
-  cultural_respect: number | null
-  family_feeling: number | null
-  // NPS
+  condition_change: string | null
+
+  // Spiritual & Holistic (Bagian F)
+  spiritual_salam_doa: number | null
+  spiritual_islam_respect: number | null
+  spiritual_facility: number | null
+  spiritual_healing: number | null
+  spiritual_support: number | null
+
+  // NPS & Loyalty (Bagian G)
   nps_score: number | null
-  // Qualitative
-  complaints: string | null
-  suggestions: string | null
+  visit_plan: string | null
+  has_recommended: string | null
+
+  // Qualitative (Bagian H)
+  best_experience: string | null
+  improvement_suggestion: string | null
   testimonial: string | null
+
+  // Full responses (for research)
+  responses_json: Record<string, unknown> | null
+
   // Metadata
   session_duration_seconds: number | null
   device_type: string | null
   submitted_at: string
+
   // Joined
   units?: Unit
 }
@@ -135,8 +169,10 @@ export interface DashboardData {
   }
   recentFeedback: {
     testimonial: string | null
+    bestExperience: string | null
     complaints: string | null
     suggestions: string | null
+    improvementSuggestion: string | null
     unitName: string
     npsScore: number | null
     submittedAt: string
@@ -146,6 +182,8 @@ export interface DashboardData {
     ageRangeDistribution: Record<string, number>
     genderDistribution: Record<string, number>
     patientTypeDistribution: Record<string, number>
+    conditionTypeDistribution: Record<string, number>
+    educationDistribution: Record<string, number>
     topTreatments: { name: string; count: number }[]
   }
   trendData: { date: string; count: number }[]

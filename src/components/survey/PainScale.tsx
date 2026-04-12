@@ -1,7 +1,6 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { ThumbsDown, ThumbsUp } from 'lucide-react'
 
 interface PainScaleProps {
   value: number
@@ -26,13 +25,13 @@ export default function PainScale({ value, onChange, label, disabled = false }: 
   }
 
   return (
-    <div className="space-y-3">
+    <div className={cn('space-y-3', disabled && 'opacity-50')}>
       <div className="flex items-center justify-between">
         <span className="text-base font-semibold text-gray-700">{label}</span>
         <span
           className={cn(
             'text-3xl font-bold tabular-nums transition-colors',
-            getTextColor(value)
+            disabled ? 'text-gray-400' : getTextColor(value)
           )}
         >
           {value}
@@ -43,15 +42,16 @@ export default function PainScale({ value, onChange, label, disabled = false }: 
       <div className="relative h-12 rounded-full overflow-hidden bg-gray-100">
         {/* Color gradient background */}
         <div
-          className="absolute inset-y-0 left-0 rounded-full transition-all duration-300"
+          className={cn(
+            'absolute inset-y-0 left-0 rounded-full transition-all duration-300',
+            disabled ? 'bg-gray-300' : getColor(value)
+          )}
           style={{ width: `${(value / 10) * 100}%` }}
-        >
-          <div className={cn('w-full h-full', getColor(value))} />
-        </div>
+        />
         {/* Labels */}
         <div className="absolute inset-0 flex items-center justify-between px-4 text-xs font-medium text-white mix-blend-difference">
-          <span>Tidak Nyeri</span>
-          <span>Nyeri Sangat Parah</span>
+          <span>{disabled ? 'Tidak Tersedia' : 'Tidak Nyeri'}</span>
+          <span>{disabled ? 'Kunjungan Pertama' : 'Nyeri Sangat Parah'}</span>
         </div>
       </div>
 
@@ -60,9 +60,9 @@ export default function PainScale({ value, onChange, label, disabled = false }: 
         min={0}
         max={10}
         value={value}
-        onChange={(e) => onChange(parseInt(e.target.value))}
+        onChange={(e) => !disabled && onChange(parseInt(e.target.value))}
         disabled={disabled}
-        className="w-full h-3 bg-gray-200 rounded-full appearance-none cursor-pointer accent-emerald-600"
+        className="w-full h-3 bg-gray-200 rounded-full appearance-none cursor-pointer accent-emerald-600 disabled:cursor-not-allowed"
       />
 
       <div className="flex justify-between text-xs text-gray-400">

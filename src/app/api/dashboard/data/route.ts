@@ -47,58 +47,35 @@ export async function GET(request: NextRequest) {
 
     const servqual = { tangibles, reliability, responsiveness, assurance, empathy, overall }
 
-    // --- Unit Performance ---
-    const unitMap = new Map<string, {
-      name: string; unitType: string | null; scores: number[]
-      painBefore: number[]; painAfter: number[]
-    }>()
-    for (const s of surveys) {
-      const unit = s.units as Unit
-      if (!unitMap.has(s.unit_id)) {
-        unitMap.set(s.unit_id, {
-          name: unit.name, unitType: unit.unit_type,
-          scores: [], painBefore: [], painAfter: [],
-        })
-      }
-      const u = unitMap.get(s.unit_id)!
-      const sqScores = [s.tangibles, s.reliability, s.responsiveness, s.assurance, s.empathy].filter((v): v is number => v !== null && v > 0)
-      if (sqScores.length > 0) u.scores.push(sqScores.reduce((a, b) => a + b, 0) / sqScores.length)
-      if (s.pain_level_before !== null) u.painBefore.push(s.pain_level_before)
-      if (s.pain_level_after !== null) u.painAfter.push(s.pain_level_after)
-    }
-
-    const unitPerformance = Array.from(unitMap.entries()).map(([_, u]) => ({
-      unitName: u.name,
-      unitType: u.unitType,
-      surveyCount: u.scores.length,
-      avgSatisfaction: parseFloat((u.scores.reduce((a, b) => a + b, 0) / (u.scores.length || 1)).toFixed(2)),
-      avgPainReduction: u.painBefore.length > 0
-        ? (() => {
-            const ab = u.painBefore.reduce((a, b) => a + b, 0) / u.painBefore.length
-            const aa = u.painAfter.length > 0 ? u.painAfter.reduce((a, b) => a + b, 0) / u.painAfter.length : 0
-            return parseFloat((((ab - aa) / (ab || 1)) * 100).toFixed(1))
-          })()
-        : 0,
-    }))
-
-    // --- Spiritual Averages ---
+    // --- Spiritual Averages (using actual schema fields) ---
     const spiritualAvg = {
-      spiritualComfort: avg(surveys.map((s) => s.spiritual_comfort)),
-      culturalRespect: avg(surveys.map((s) => s.cultural_respect)),
-      familyFeeling: avg(surveys.map((s) => s.family_feeling)),
+      spiritualComfort: avg(surveys.map((s) => s.spiritual_salam_doa)),
+      culturalRespect: avg(surveys.map((s) => s.spiritual_islam_respect)),
+      familyFeeling: avg(surveys.map((s) => s.spiritual_healing)),
     }
 
-    // --- Recent Feedback (complaints + suggestions + testimonials) ---
+    // --- Unit Performance (single unit) ---
+    const unitPerformance = [{
+      unitName: 'Poli Akupuntur & Herbal',
+      unitType: 'Integrative Medicine',
+      surveyCount: totalSurveys,
+      avgSatisfaction: overall,
+      avgPainReduction,
+    }]
+
+    // --- Recent Feedback ---
     const recentFeedback = surveys
-      .filter((s) => s.complaints || s.suggestions || s.testimonial)
+      .filter((s) => s.best_experience || s.improvement_suggestion || s.testimonial)
       .slice(0, 10)
       .map((s) => {
         const unit = s.units as Unit
         return {
           testimonial: s.testimonial,
-          complaints: s.complaints,
-          suggestions: s.suggestions,
-          unitName: unit.name,
+          bestExperience: s.best_experience,
+          complaints: null, // alias for backward compat
+          suggestions: s.improvement_suggestion, // alias for backward compat
+          improvementSuggestion: s.improvement_suggestion,
+          unitName: unit?.name || 'Poli Akupuntur & Herbal',
           npsScore: s.nps_score,
           submittedAt: s.submitted_at,
         }
@@ -108,16 +85,16 @@ export async function GET(request: NextRequest) {
     const ageRangeMap = new Map<string, number>()
     const genderMap = new Map<string, number>()
     const patientTypeMap = new Map<string, number>()
-    const treatmentMap = new Map<string, number>()
+    const conditionMap = new Map<string, number>()
 
     surveys.forEach((s) => {
       if (s.age_range) ageRangeMap.set(s.age_range, (ageRangeMap.get(s.age_range) || 0) + 1)
       if (s.gender) genderMap.set(s.gender, (genderMap.get(s.gender) || 0) + 1)
       if (s.patient_type) patientTypeMap.set(s.patient_type, (patientTypeMap.get(s.patient_type) || 0) + 1)
-      if (s.treatment_type) treatmentMap.set(s.treatment_type, (treatmentMap.get(s.treatment_type) || 0) + 1)
+      if (s.condition_type) conditionMap.set(s.condition_type, (conditionMap.get(s.condition_type) || 0) + 1)
     })
 
-    const topTreatments = Array.from(treatmentMap.entries())
+    const topTreatments = Array.from(conditionMap.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([name, count]) => ({ name, count }))
