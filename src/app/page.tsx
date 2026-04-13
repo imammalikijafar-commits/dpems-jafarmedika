@@ -2,24 +2,12 @@
 
 import { useRef, useState, useEffect } from 'react'
 import Link from 'next/link'
-import { motion, useInView } from 'framer-motion'
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { motion, useInView, AnimatePresence } from 'framer-motion'
 import {
   Activity,
   Heart,
-  Shield,
   BarChart3,
   Users,
-  TrendingDown,
   Star,
   ClipboardList,
   QrCode,
@@ -29,57 +17,102 @@ import {
   Route,
   Sparkles,
   ArrowRight,
-  Stethoscope,
-  Leaf,
   Cross,
-  LogIn,
   Menu,
   X,
+  TrendingUp,
+  Layers,
+  Check,
+  Lock,
 } from 'lucide-react'
 
-/* ──────────────────────── animation helpers ──────────────────────── */
+/* ════════════════════════════════════════════════════════════════════
+   CONSTANTS & DESIGN TOKENS
+   ════════════════════════════════════════════════════════════════════ */
 
-function FadeIn({
+const TEAL = {
+  deep: '#0F7A6E',
+  medium: '#14B8A6',
+  bright: '#2DD4BF',
+  light: '#5EEAD4',
+  lighter: '#99F6E4',
+  lightest: '#CCFBF1',
+}
+
+const DARK = {
+  950: '#030712',
+  900: '#0B1120',
+  800: '#111827',
+  700: '#1F2937',
+}
+
+const SLATE = {
+  600: '#475569',
+  500: '#64748B',
+  400: '#94A3B8',
+  300: '#CBD5E1',
+  200: '#E2E8F0',
+  100: '#F1F5F9',
+  50: '#F8FAFC',
+}
+
+const EASE_OUT = [0.25, 0.46, 0.45, 0.94] as [number, number, number, number]
+
+/* ════════════════════════════════════════════════════════════════════
+   HOOKS
+   ════════════════════════════════════════════════════════════════════ */
+
+function useCounter(
+  target: number,
+  inView: boolean,
+  duration = 1500,
+  decimals = 0
+) {
+  const [value, setValue] = useState(0)
+
+  useEffect(() => {
+    if (!inView) return
+    let start = 0
+    const startTime = performance.now()
+
+    function step(now: number) {
+      const elapsed = now - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      const current = eased * target
+      setValue(current)
+      if (progress < 1) requestAnimationFrame(step)
+    }
+
+    requestAnimationFrame(step)
+  }, [inView, target, duration])
+
+  return decimals > 0 ? value.toFixed(decimals) : Math.round(value)
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   ANIMATION HELPERS
+   ════════════════════════════════════════════════════════════════════ */
+
+function FadeUp({
   children,
   className,
   delay = 0,
-  direction = 'up',
 }: {
   children: React.ReactNode
   className?: string
   delay?: number
-  direction?: 'up' | 'down' | 'left' | 'right' | 'none'
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const isInView = useInView(ref, { once: true, margin: '-60px' })
-
-  const offsets: Record<string, { x: number; y: number }> = {
-    up: { x: 0, y: 40 },
-    down: { x: 0, y: -40 },
-    left: { x: 40, y: 0 },
-    right: { x: -40, y: 0 },
-    none: { x: 0, y: 0 },
-  }
 
   return (
     <motion.div
       ref={ref}
       className={className}
-      initial={{
-        opacity: 0,
-        x: offsets[direction].x,
-        y: offsets[direction].y,
-      }}
-      animate={
-        isInView
-          ? { opacity: 1, x: 0, y: 0 }
-          : {
-              opacity: 0,
-              x: offsets[direction].x,
-              y: offsets[direction].y,
-            }
-      }
-      transition={{ duration: 0.6, delay, ease: [0.25, 0.46, 0.45, 0.94] }}
+      initial={{ opacity: 0, y: 30 }}
+      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+      transition={{ duration: 0.6, delay, ease: EASE_OUT }}
     >
       {children}
     </motion.div>
@@ -119,286 +152,565 @@ const staggerItem = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
+    transition: { duration: 0.5, ease: EASE_OUT },
   },
 }
 
-/* ──────────────────────── section wrapper ──────────────────────── */
+/* ════════════════════════════════════════════════════════════════════
+   SECTION WRAPPER
+   ════════════════════════════════════════════════════════════════════ */
 
 function Section({
   children,
   className,
   id,
+  style,
 }: {
   children: React.ReactNode
   className?: string
   id?: string
+  style?: React.CSSProperties
 }) {
   return (
-    <section id={id} className={cn('w-full py-20 md:py-28', className)}>
+    <section id={id} className={`w-full py-20 md:py-28 ${className || ''}`} style={style}>
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">{children}</div>
     </section>
   )
 }
 
-function SectionHeader({
-  badge,
-  title,
-  description,
-}: {
-  badge?: string
-  title: string
-  description?: string
-}) {
+/* ════════════════════════════════════════════════════════════════════
+   1. NAVBAR
+   ════════════════════════════════════════════════════════════════════ */
+
+function Navbar() {
+  const [scrolled, setScrolled] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
   return (
-    <FadeIn className="mb-12 text-center md:mb-16">
-      {badge && (
-        <Badge
-          variant="secondary"
-          className="mb-4 px-4 py-1.5 text-sm font-medium tracking-wide"
-        >
-          {badge}
-        </Badge>
-      )}
-      <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">{title}</h2>
-      {description && (
-        <p className="mx-auto mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
-          {description}
-        </p>
-      )}
-    </FadeIn>
+    <nav
+      className="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
+      style={{
+        backgroundColor: scrolled ? 'rgba(3, 7, 18, 0.85)' : 'transparent',
+        backdropFilter: scrolled ? 'blur(16px)' : 'none',
+        borderBottom: scrolled
+          ? '1px solid rgba(20, 184, 166, 0.1)'
+          : '1px solid transparent',
+      }}
+    >
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2.5">
+            <span
+              className="flex h-9 w-9 items-center justify-center rounded-lg"
+              style={{
+                background: `linear-gradient(135deg, ${TEAL.deep}, ${TEAL.bright})`,
+              }}
+            >
+              <Cross className="h-5 w-5 text-white" />
+            </span>
+            <div className="hidden sm:block">
+              <p
+                className="text-sm font-bold leading-tight text-white lp-font-display"
+                style={{ letterSpacing: '0.02em' }}
+              >
+                DPEMS
+              </p>
+              <p className="text-[11px] leading-tight" style={{ color: SLATE[400] }}>
+                RSU Ja&apos;far Medika · Karanganyar
+              </p>
+            </div>
+          </Link>
+
+          {/* Desktop Links */}
+          <div className="hidden md:flex items-center gap-1">
+            {[
+              { label: 'Fitur', href: '#fitur' },
+              { label: 'Cara Kerja', href: '#cara-kerja' },
+              { label: 'Metodologi', href: '#metodologi' },
+            ].map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className="px-3 py-2 text-sm font-medium rounded-lg transition-colors"
+                style={{ color: SLATE[300] }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = '#FFFFFF')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = SLATE[300])}
+              >
+                {l.label}
+              </Link>
+            ))}
+          </div>
+
+          {/* CTAs + Mobile Toggle */}
+          <div className="flex items-center gap-2">
+            <Link
+              href="/survey/consent"
+              className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-colors"
+              style={{ color: SLATE[300] }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#FFFFFF')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = SLATE[300])}
+            >
+              Isi Survei
+            </Link>
+            <Link
+              href="/login"
+              className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg text-white transition-all duration-200 hover:opacity-90"
+              style={{
+                background: `linear-gradient(135deg, ${TEAL.deep}, ${TEAL.medium})`,
+                boxShadow: `0 2px 12px rgba(15, 122, 110, 0.3)`,
+              }}
+            >
+              <BarChart3 className="h-4 w-4" />
+              Dashboard
+            </Link>
+            <button
+              className="flex md:hidden items-center justify-center h-9 w-9 rounded-lg transition-colors"
+              style={{ color: SLATE[300] }}
+              onClick={() => setMobileOpen(!mobileOpen)}
+              aria-label="Toggle menu"
+            >
+              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Menu */}
+        <AnimatePresence>
+          {mobileOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.25 }}
+              className="md:hidden overflow-hidden"
+            >
+              <div className="pb-4 pt-2 space-y-1">
+                {[
+                  { label: 'Fitur', href: '#fitur' },
+                  { label: 'Cara Kerja', href: '#cara-kerja' },
+                  { label: 'Metodologi', href: '#metodologi' },
+                ].map((l) => (
+                  <Link
+                    key={l.href}
+                    href={l.href}
+                    onClick={() => setMobileOpen(false)}
+                    className="block px-3 py-2 text-sm font-medium rounded-lg"
+                    style={{ color: SLATE[300] }}
+                  >
+                    {l.label}
+                  </Link>
+                ))}
+                <Link
+                  href="/survey/consent"
+                  onClick={() => setMobileOpen(false)}
+                  className="block px-3 py-2 text-sm font-medium rounded-lg"
+                  style={{ color: TEAL.light }}
+                >
+                  Isi Survei
+                </Link>
+                <Link
+                  href="/login"
+                  onClick={() => setMobileOpen(false)}
+                  className="block px-3 py-2 text-sm font-semibold rounded-lg text-white"
+                  style={{
+                    background: `linear-gradient(135deg, ${TEAL.deep}, ${TEAL.medium})`,
+                  }}
+                >
+                  Dashboard Analitik
+                </Link>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </nav>
   )
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   SECTION 1 — HERO (includes Navbar)
+   2. HERO
    ════════════════════════════════════════════════════════════════════ */
 
 function HeroSection() {
-  const [mobileOpen, setMobileOpen] = useState(false)
   return (
-    <header className="relative overflow-hidden bg-linear-to-br from-emerald-50 via-background to-emerald-100/60 dark:from-emerald-950/40 dark:via-background dark:to-emerald-900/20">
-      {/* Fixed Navbar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-primary/10">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            {/* Brand */}
-            <Link href="/" className="flex items-center gap-2">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                <Cross className="h-5 w-5 text-primary" />
-              </span>
-              <div className="hidden sm:block">
-                <p className="text-sm font-bold leading-tight text-foreground">DPEMS</p>
-                <p className="text-[11px] text-muted-foreground">RSU Ja&apos;far Medika</p>
-              </div>
-            </Link>
-
-            {/* Desktop Links */}
-            <div className="hidden md:flex items-center gap-1">
-              <Link href="#fitur" className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted">
-                Fitur
-              </Link>
-              <Link href="#cara-kerja" className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted">
-                Cara Kerja
-              </Link>
-              <Link href="/survey/consent" className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted">
-                Isi Survei
-              </Link>
-            </div>
-
-            {/* CTA + Mobile Toggle */}
-            <div className="flex items-center gap-2">
-              <Button asChild size="sm" className="hidden sm:inline-flex gap-1.5 bg-primary hover:bg-primary/90">
-                <Link href="/login">
-                  <LogIn className="h-4 w-4" />
-                  Dashboard
-                </Link>
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="md:hidden"
-                onClick={() => setMobileOpen(!mobileOpen)}
-              >
-                {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-              </Button>
-            </div>
-          </div>
-
-          {/* Mobile Menu */}
-          {mobileOpen && (
-            <div className="md:hidden border-t border-primary/10 py-3 space-y-1">
-              <Link href="#fitur" onClick={() => setMobileOpen(false)} className="block px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted">
-                Fitur
-              </Link>
-              <Link href="#cara-kerja" onClick={() => setMobileOpen(false)} className="block px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted">
-                Cara Kerja
-              </Link>
-              <Link href="/survey/consent" onClick={() => setMobileOpen(false)} className="block px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted">
-                Isi Survei
-              </Link>
-              <Link href="/login" onClick={() => setMobileOpen(false)} className="block px-3 py-2 text-sm font-medium text-primary rounded-lg hover:bg-primary/5">
-                Dashboard Analitik
-              </Link>
-            </div>
-          )}
-        </div>
-      </nav>
-      {/* decorative blobs */}
-      <div className="pointer-events-none absolute -top-24 -right-24 h-[420px] w-[420px] rounded-full bg-emerald-200/40 blur-3xl dark:bg-emerald-800/20" />
-      <div className="pointer-events-none absolute -bottom-32 -left-32 h-[500px] w-[500px] rounded-full bg-emerald-100/50 blur-3xl dark:bg-emerald-900/15" />
-
-      <div className="relative mx-auto flex min-h-[92vh] max-w-6xl flex-col items-center justify-center px-4 pt-24 pb-20 text-center sm:px-6 lg:px-8">
-        {/* hospital badge */}
-        <FadeIn delay={0}>
-          <div className="mb-6 flex items-center justify-center gap-2">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-              <Cross className="h-5 w-5 text-primary" />
-            </span>
-            <span className="text-sm font-semibold tracking-wide text-primary">
-              RSU Ja&apos;far Medika
-            </span>
-            <span className="text-sm text-muted-foreground">
-              &mdash; Mojogedang, Karanganyar
-            </span>
-          </div>
-        </FadeIn>
-
-        {/* tagline pills */}
-        <FadeIn delay={0.1}>
-          <div className="mb-8 flex flex-wrap items-center justify-center gap-2">
-            <Badge
-              variant="outline"
-              className="gap-1.5 border-primary/20 bg-primary/5 px-3 py-1"
-            >
-              <Leaf className="h-3.5 w-3.5 text-primary" />
-              Akupuntur &amp; Herbal
-            </Badge>   
-          </div>
-        </FadeIn>
-
-        {/* main heading */}
-        <FadeIn delay={0.15}>
-          <h1 className="mx-auto max-w-4xl text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl md:text-6xl lg:text-[3.5rem]">
-            Digital Patient Experience{' '}
-            <span className="bg-linear-to-r from-primary via-emerald-600 to-primary bg-clip-text text-transparent">
-              Monitoring System
-            </span>
-          </h1>
-        </FadeIn>
-
-        <FadeIn delay={0.25}>
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
-            Mengukur &amp; Meningkatkan Kualitas Layanan Integratif untuk
-            Rehabilitasi Stroke &amp; Manajemen Nyeri
-          </p>
-        </FadeIn>
-
-        {/* CTA buttons */}
-        <FadeIn delay={0.35}>
-          <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
-            <Button
-              asChild
-              variant="outline"
-              size="lg"
-              className="h-12 gap-2 px-8 text-base font-semibold"
-            >
-              <Link href="/survey/consent">
-                <ClipboardList className="h-5 w-5" />
-                Isi Survei
-              </Link>
-            </Button>
-          </div>
-        </FadeIn>
+    <header
+      className="relative overflow-hidden"
+      style={{ backgroundColor: DARK[950], minHeight: '100vh' }}
+    >
+      {/* Background Effects */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Radial mesh gradient */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `
+              radial-gradient(ellipse 60% 50% at 50% 40%, rgba(15, 122, 110, 0.15) 0%, transparent 70%),
+              radial-gradient(ellipse 40% 30% at 20% 60%, rgba(45, 212, 191, 0.08) 0%, transparent 60%),
+              radial-gradient(ellipse 40% 30% at 80% 30%, rgba(20, 184, 166, 0.1) 0%, transparent 60%)
+            `,
+          }}
+        />
+        {/* Grid lines */}
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `
+              linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
+            `,
+            backgroundSize: '60px 60px',
+          }}
+        />
+        {/* Floating orb 1 */}
+        <motion.div
+          className="absolute rounded-full"
+          style={{
+            width: 400,
+            height: 400,
+            top: '10%',
+            left: '-5%',
+            background: `radial-gradient(circle, rgba(45, 212, 191, 0.12) 0%, transparent 70%)`,
+            filter: 'blur(60px)',
+          }}
+          animate={{
+            y: [0, -30, 0],
+            x: [0, 20, 0],
+          }}
+          transition={{
+            duration: 8,
+            repeat: Infinity,
+            ease: 'easeInOut',
+          }}
+        />
+        {/* Floating orb 2 */}
+        <motion.div
+          className="absolute rounded-full"
+          style={{
+            width: 350,
+            height: 350,
+            bottom: '10%',
+            right: '-5%',
+            background: `radial-gradient(circle, rgba(15, 122, 110, 0.15) 0%, transparent 70%)`,
+            filter: 'blur(60px)',
+          }}
+          animate={{
+            y: [0, 25, 0],
+            x: [0, -15, 0],
+          }}
+          transition={{
+            duration: 10,
+            repeat: Infinity,
+            ease: 'easeInOut',
+          }}
+        />
       </div>
 
-      {/* straight bottom edge */}
-      <div className="absolute bottom-0 left-0 right-0 h-1 bg-background" />
+      {/* Content */}
+      <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col items-center justify-center px-4 pt-20 pb-16 text-center sm:px-6 lg:px-8">
+        {/* Eyebrow pill */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2, ease: EASE_OUT }}
+        >
+          <div
+            className="mb-8 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium"
+            style={{
+              backgroundColor: 'rgba(15, 122, 110, 0.1)',
+              border: '1px solid rgba(20, 184, 166, 0.2)',
+              color: TEAL.light,
+            }}
+          >
+            <Cross className="h-4 w-4" />
+            RSU Ja&apos;far Medika — Mojogedang, Karanganyar
+          </div>
+        </motion.div>
+
+        {/* Heading */}
+        <motion.h1
+          className="lp-font-display mx-auto max-w-4xl text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl md:text-6xl lg:text-7xl"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.35, ease: EASE_OUT }}
+          style={{ color: '#FFFFFF' }}
+        >
+          Digital Patient{' '}
+          <span
+            style={{
+              background: `linear-gradient(135deg, ${TEAL.bright}, ${TEAL.light}, ${TEAL.bright})`,
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}
+          >
+            Experience
+          </span>{' '}
+          Monitoring System
+        </motion.h1>
+
+        {/* Subtitle */}
+        <motion.p
+          className="lp-font-body mx-auto mt-6 max-w-2xl text-lg leading-relaxed sm:text-xl"
+          style={{ color: SLATE[400] }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.5, ease: EASE_OUT }}
+        >
+          Mengukur &amp; meningkatkan kualitas layanan integratif — akupunktur,
+          herbal kelor, dan rehabilitasi stroke — dengan pendekatan
+          evidence-based dan islamic holistic care.
+        </motion.p>
+
+        {/* CTA Buttons */}
+        <motion.div
+          className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:gap-4"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.65, ease: EASE_OUT }}
+        >
+          <Link
+            href="/survey/consent"
+            className="inline-flex items-center gap-2 px-7 py-3.5 text-base font-semibold rounded-xl text-white transition-all duration-200 hover:opacity-90"
+            style={{
+              background: `linear-gradient(135deg, ${TEAL.deep}, ${TEAL.medium})`,
+              boxShadow: `0 4px 24px rgba(15, 122, 110, 0.35)`,
+            }}
+          >
+            Mulai Isi Survei
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+          <Link
+            href="#fitur"
+            className="inline-flex items-center gap-2 px-7 py-3.5 text-base font-semibold rounded-xl transition-all duration-200"
+            style={{
+              border: '1px solid rgba(148, 163, 184, 0.2)',
+              color: SLATE[200],
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(148, 163, 184, 0.4)'
+              e.currentTarget.style.backgroundColor = 'rgba(148, 163, 184, 0.05)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(148, 163, 184, 0.2)'
+              e.currentTarget.style.backgroundColor = 'transparent'
+            }}
+          >
+            Lihat Fitur
+          </Link>
+        </motion.div>
+
+        {/* Bottom badges */}
+        <motion.div
+          className="mt-14 flex flex-wrap items-center justify-center gap-2"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.9 }}
+        >
+          {['SERVQUAL Framework', 'VAS', 'NPS', 'Islamic Holistic Care'].map(
+            (badge) => (
+              <span
+                key={badge}
+                className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium"
+                style={{
+                  backgroundColor: 'rgba(148, 163, 184, 0.06)',
+                  border: '1px solid rgba(148, 163, 184, 0.1)',
+                  color: SLATE[500],
+                }}
+              >
+                {badge}
+              </span>
+            )
+          )}
+        </motion.div>
+
+      </div>
     </header>
   )
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   SECTION 2 — KEY METRICS
+   3. TRUST STRIP
    ════════════════════════════════════════════════════════════════════ */
 
-const FALLBACK_METRICS = [
-  {
-    icon: Users,
-    label: 'Total Responden',
-    value: '-',
-    suffix: 'pasien',
-    color: 'text-emerald-600 dark:text-emerald-400',
-    bg: 'bg-emerald-50 dark:bg-emerald-950/50',
-  },
-  {
-    icon: TrendingDown,
-    label: 'Rata-rata Pengurangan Nyeri',
-    value: '-',
-    suffix: '%',
-    color: 'text-emerald-600 dark:text-emerald-400',
-    bg: 'bg-emerald-50 dark:bg-emerald-950/50',
-  },
-  {
-    icon: Star,
-    label: 'NPS Score',
-    value: '-',
-    suffix: '',
-    color: 'text-amber-600 dark:text-amber-400',
-    bg: 'bg-amber-50 dark:bg-amber-950/50',
-  },
-  {
-    icon: Heart,
-    label: 'Tingkat Kepuasan',
-    value: '-',
-    suffix: '/5',
-    color: 'text-rose-500 dark:text-rose-400',
-    bg: 'bg-rose-50 dark:bg-rose-950/50',
-  },
+const trustItems = [
+  { label: 'Evidence-based Research', icon: Layers },
+  { label: 'Antarmuka Ramah Lansia', icon: Heart },
+  { label: 'Real-time Analytics', icon: BarChart3 },
+  { label: 'Data Terenkripsi & Aman', icon: Lock },
+  { label: 'Export PDF & Excel', icon: FileText },
 ]
 
+function TrustStrip() {
+  return (
+    <div
+      className="w-full"
+      style={{
+        backgroundColor: '#FFFFFF',
+        borderTop: `1px solid ${SLATE[200]}`,
+        borderBottom: `1px solid ${SLATE[200]}`,
+      }}
+    >
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-5">
+        <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
+          {trustItems.map((item) => (
+            <div key={item.label} className="flex items-center gap-2">
+              <Check
+                className="h-4 w-4 shrink-0"
+                style={{ color: TEAL.deep }}
+              />
+              <span
+                className="text-sm font-medium lp-font-body"
+                style={{ color: SLATE[500] }}
+              >
+                {item.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   4. METRICS
+   ════════════════════════════════════════════════════════════════════ */
+
+interface MetricData {
+  icon: React.ElementType
+  label: string
+  value: string
+  numericValue: number
+  suffix: string
+  decimals: number
+}
+
+const FALLBACK_METRICS: MetricData[] = [
+  { icon: Users, label: 'Total Responden', value: '-', numericValue: 0, suffix: ' pasien', decimals: 0 },
+  { icon: Activity, label: 'Rata-rata Pengurangan Nyeri', value: '-', numericValue: 0, suffix: '%', decimals: 1 },
+  { icon: Star, label: 'NPS Score', value: '-', numericValue: 0, suffix: '', decimals: 0 },
+  { icon: Heart, label: 'Tingkat Kepuasan', value: '-', numericValue: 0, suffix: '/5', decimals: 1 },
+]
+
+function MetricCard({ metric, inView }: { metric: MetricData; inView: boolean }) {
+  const counterValue = useCounter(
+    metric.numericValue,
+    inView,
+    1500,
+    metric.decimals
+  )
+  const displayValue = metric.value === '-' ? '-' : counterValue
+
+  return (
+    <div
+      className="lp-metric-card group relative rounded-2xl border p-6 transition-all duration-300 cursor-default"
+      style={{
+        backgroundColor: SLATE[50],
+        borderColor: `${SLATE[200]}66`,
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = `${TEAL.medium}66`
+        e.currentTarget.style.transform = 'translateY(-3px)'
+        e.currentTarget.style.boxShadow = `0 8px 30px ${TEAL.light}15`
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = `${SLATE[200]}66`
+        e.currentTarget.style.transform = 'translateY(0)'
+        e.currentTarget.style.boxShadow = 'none'
+      }}
+    >
+      {/* Top accent line */}
+      <div
+        className="lp-accent-line absolute top-0 left-0 right-0 h-[3px] rounded-t-2xl"
+        style={{
+          background: `linear-gradient(90deg, ${TEAL.deep}, ${TEAL.bright})`,
+        }}
+      />
+      <div className="flex items-start gap-4">
+        <div
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+          style={{
+            backgroundColor: `${TEAL.light}20`,
+          }}
+        >
+          <metric.icon className="h-6 w-6" style={{ color: TEAL.deep }} />
+        </div>
+        <div className="min-w-0">
+          <p
+            className="text-sm font-medium lp-font-body"
+            style={{ color: SLATE[500] }}
+          >
+            {metric.label}
+          </p>
+          <p className="mt-2 lp-font-display text-3xl font-extrabold tracking-tight" style={{ color: DARK[950] }}>
+            {displayValue}
+            <span
+              className="ml-1 text-base font-semibold lp-font-body"
+              style={{ color: SLATE[400] }}
+            >
+              {metric.suffix}
+            </span>
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function MetricsSection() {
-  const [metrics, setMetrics] = useState(FALLBACK_METRICS)
+  const [metrics, setMetrics] = useState<MetricData[]>(FALLBACK_METRICS)
+  const ref = useRef<HTMLDivElement>(null)
+  const isInView = useInView(ref, { once: true, margin: '-60px' })
 
   useEffect(() => {
     fetch('/api/dashboard/data?period=30')
       .then((r) => r.json())
       .then((data) => {
         if (data.error) return
+        const totalSurveys = data.totalSurveys ?? 0
+        const avgPain = data.avgPainReduction ?? 0
+        const npsScore = data.nps?.score ?? 0
+        const satisfaction = data.overallSatisfaction ?? 0
+
         setMetrics([
           {
             icon: Users,
             label: 'Total Responden',
-            value: data.totalSurveys?.toString() ?? '-',
-            suffix: 'pasien',
-            color: 'text-emerald-600 dark:text-emerald-400',
-            bg: 'bg-emerald-50 dark:bg-emerald-950/50',
+            value: totalSurveys.toString(),
+            numericValue: totalSurveys,
+            suffix: ' pasien',
+            decimals: 0,
           },
           {
-            icon: TrendingDown,
+            icon: Activity,
             label: 'Rata-rata Pengurangan Nyeri',
-            value: data.avgPainReduction?.toString() ?? '-',
+            value: avgPain.toFixed(1),
+            numericValue: avgPain,
             suffix: '%',
-            color: 'text-emerald-600 dark:text-emerald-400',
-            bg: 'bg-emerald-50 dark:bg-emerald-950/50',
+            decimals: 1,
           },
           {
             icon: Star,
             label: 'NPS Score',
-            value: data.nps?.score != null
-              ? (data.nps.score >= 0 ? '+' : '') + data.nps.score
-              : '-',
+            value: npsScore.toString(),
+            numericValue: Math.abs(npsScore),
             suffix: '',
-            color: 'text-amber-600 dark:text-amber-400',
-            bg: 'bg-amber-50 dark:bg-amber-950/50',
+            decimals: 0,
           },
           {
             icon: Heart,
             label: 'Tingkat Kepuasan',
-            value: data.overallSatisfaction?.toString() ?? '-',
+            value: satisfaction.toFixed(1),
+            numericValue: satisfaction,
             suffix: '/5',
-            color: 'text-rose-500 dark:text-rose-400',
-            bg: 'bg-rose-50 dark:bg-rose-950/50',
+            decimals: 1,
           },
         ])
       })
@@ -406,52 +718,43 @@ function MetricsSection() {
   }, [])
 
   return (
-    <Section className="bg-background">
-      <SectionHeader
-        badge="Data Terkini"
-        title="Capaian Sistem dalam Angka"
-        description="Ringkasan indikator utama dari pengukuran patient experience di RSU Ja'far Medika"
-      />
+    <Section style={{ backgroundColor: '#FFFFFF' }}>
+      <FadeUp className="mb-12 text-center md:mb-16">
+        <div
+          className="mb-4 inline-flex items-center rounded-full px-4 py-1.5 text-sm font-medium lp-font-body"
+          style={{
+            backgroundColor: `${TEAL.light}15`,
+            color: TEAL.deep,
+          }}
+        >
+          Data Terkini
+        </div>
+        <h2
+          className="lp-font-display text-3xl font-bold tracking-tight sm:text-4xl"
+          style={{ color: DARK[950] }}
+        >
+          Capaian Sistem dalam Angka
+        </h2>
+        <p
+          className="mx-auto mt-4 max-w-2xl text-base lp-font-body sm:text-lg"
+          style={{ color: SLATE[500] }}
+        >
+          Ringkasan indikator utama dari pengukuran patient experience di
+          RSU Ja&apos;far Medika
+        </p>
+      </FadeUp>
 
-      <StaggerContainer className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div ref={ref} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {metrics.map((m) => (
-          <motion.div key={m.label} variants={staggerItem}>
-            <Card className="group relative overflow-hidden border-primary/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/5">
-              <CardContent className="flex items-center gap-4 p-6">
-                <div
-                  className={cn(
-                    'flex h-14 w-14 shrink-0 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110',
-                    m.bg
-                  )}
-                >
-                  <m.icon className={cn('h-7 w-7', m.color)} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {m.label}
-                  </p>
-                  <p className="mt-1 text-3xl font-extrabold tracking-tight">
-                    {m.value}
-                    {m.suffix && (
-                      <span className="ml-0.5 text-lg font-semibold text-muted-foreground">
-                        {m.suffix}
-                      </span>
-                    )}
-                  </p>
-                </div>
-              </CardContent>
-              {/* subtle accent line */}
-              <div className="absolute bottom-0 left-0 h-[3px] w-0 bg-linear-to-r from-primary to-emerald-400 transition-all duration-500 group-hover:w-full" />
-            </Card>
-          </motion.div>
+          <MetricCard key={m.label} metric={m} inView={isInView} />
         ))}
-      </StaggerContainer>
+      </div>
     </Section>
   )
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   SECTION 3 — FEATURES GRID
+   5. FEATURES
    ════════════════════════════════════════════════════════════════════ */
 
 const features = [
@@ -460,84 +763,143 @@ const features = [
     title: 'Survei SERVQUAL',
     description:
       'Penilaian 5 dimensi kualitas pelayanan — Tangibles, Reliability, Responsiveness, Assurance, dan Empathy — untuk evaluasi menyeluruh.',
-    tags: ['5 Dimensi', 'Evidence-based'],
+    tags: ['5 Dimensi', 'Evidence-based', 'Tervalidasi'],
   },
   {
     icon: Activity,
-    title: 'Pain Tracking (VAS)',
+    title: 'Pain Tracking VAS',
     description:
       'Pemantauan tingkat nyeri sebelum dan sesudah terapi menggunakan Visual Analogue Scale, dilengkapi grafik tren per kunjungan.',
-    tags: ['VAS', 'Tren Nyeri'],
+    tags: ['VAS 0-10', 'Tren Kunjungan'],
   },
   {
     icon: Sparkles,
     title: 'Spiritual Care Index',
     description:
       'Pengukuran kenyamanan spiritual dan kecocokan budaya pasien lansia, mencakup aspek islami holistik dalam perawatan.',
-    tags: ['Islamic Care', 'Lansia'],
+    tags: ['Islamic Care', 'Lansia', 'Holistik'],
   },
   {
-    icon: BarChart3,
+    icon: TrendingUp,
     title: 'NPS Real-time',
     description:
       'Net Promoter Score untuk mengukur loyalitas dan rekomendasi pasien secara real-time dengan dashboard interaktif.',
-    tags: ['Loyalitas', 'Real-time'],
+    tags: ['Real-time', 'Dashboard'],
   },
   {
     icon: Route,
     title: 'Recovery Journey',
     description:
       'Visualisasi perjalanan pemulihan pasien stroke dari kunjungan ke kunjungan — melihat progres fungsi motorik secara visual.',
-    tags: ['Stroke', 'Visualisasi'],
+    tags: ['Stroke Rehab', 'Longitudinal'],
   },
   {
     icon: FileText,
     title: 'Laporan Otomatis',
     description:
       'Export laporan analitik dalam format PDF dan Excel untuk keperluan akreditasi, penelitian, dan pengambilan keputusan.',
-    tags: ['PDF', 'Excel'],
+    tags: ['PDF Export', 'Excel', 'Akreditasi'],
   },
 ]
 
 function FeaturesSection() {
   return (
-    <Section className="bg-muted/40" id="fitur">
-      <SectionHeader
-        badge="Fitur Unggulan"
-        title="Sistem Monitoring Komprehensif"
-        description="Enam modul integratif yang dirancang khusus untuk kebutuhan rumah sakit dengan layanan kedokteran integratif"
-      />
+    <Section id="fitur" style={{ backgroundColor: SLATE[50] }}>
+      <FadeUp className="mb-12 text-center md:mb-16">
+        <div
+          className="mb-4 inline-flex items-center rounded-full px-4 py-1.5 text-sm font-medium lp-font-body"
+          style={{
+            backgroundColor: `${TEAL.light}15`,
+            color: TEAL.deep,
+          }}
+        >
+          Fitur Unggulan
+        </div>
+        <h2
+          className="lp-font-display text-3xl font-bold tracking-tight sm:text-4xl"
+          style={{ color: DARK[950] }}
+        >
+          Sistem Monitoring Komprehensif
+        </h2>
+        <p
+          className="mx-auto mt-4 max-w-2xl text-base lp-font-body sm:text-lg"
+          style={{ color: SLATE[500] }}
+        >
+          Enam modul integratif yang dirancang khusus untuk kebutuhan rumah
+          sakit dengan layanan kedokteran integratif
+        </p>
+      </FadeUp>
 
       <StaggerContainer
         className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
         staggerDelay={0.08}
       >
-        {features.map((f) => (
-          <motion.div key={f.title} variants={staggerItem}>
-            <Card className="group h-full border-primary/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/5">
-              <CardHeader>
-                <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary transition-transform duration-300 group-hover:scale-110">
-                  <f.icon className="h-6 w-6" />
-                </div>
-                <CardTitle className="text-lg">{f.title}</CardTitle>
-                <CardDescription className="leading-relaxed">
-                  {f.description}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-wrap gap-1.5">
-                {f.tags.map((tag) => (
-                  <Badge
-                    key={tag}
-                    variant="secondary"
-                    className="text-xs font-medium"
-                  >
-                    {tag}
-                  </Badge>
-                ))}
-              </CardContent>
-              {/* bottom accent */}
-              <div className="absolute bottom-0 left-0 h-[3px] w-0 bg-linear-to-r from-primary to-emerald-400 transition-all duration-500 group-hover:w-full" />
-            </Card>
+        {features.map((f, i) => (
+          <motion.div
+            key={f.title}
+            variants={staggerItem}
+            className="group relative rounded-2xl border bg-white p-6 transition-all duration-300"
+            style={{
+              borderColor: `${SLATE[200]}80`,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = `${TEAL.medium}66`
+              e.currentTarget.style.transform = 'translateY(-4px)'
+              e.currentTarget.style.boxShadow = `0 8px 30px ${TEAL.light}15`
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = `${SLATE[200]}80`
+              e.currentTarget.style.transform = 'translateY(0)'
+              e.currentTarget.style.boxShadow = 'none'
+            }}
+          >
+            {/* Number prefix */}
+            <span
+              className="mb-3 inline-block text-xs font-semibold lp-font-body tracking-wider"
+              style={{ color: TEAL.deep }}
+            >
+              {String(i + 1).padStart(2, '0')} — Kuesioner
+            </span>
+
+            {/* Icon */}
+            <div
+              className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl"
+              style={{
+                backgroundColor: `${TEAL.light}20`,
+              }}
+            >
+              <f.icon className="h-5 w-5" style={{ color: TEAL.deep }} />
+            </div>
+
+            <h3
+              className="lp-font-display mb-2 text-lg font-semibold"
+              style={{ color: DARK[950] }}
+            >
+              {f.title}
+            </h3>
+            <p
+              className="mb-4 text-sm leading-relaxed lp-font-body"
+              style={{ color: SLATE[500] }}
+            >
+              {f.description}
+            </p>
+
+            {/* Tags */}
+            <div className="flex flex-wrap gap-1.5">
+              {f.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex rounded-md px-2.5 py-0.5 text-xs font-medium lp-font-body"
+                  style={{
+                    backgroundColor: `${TEAL.lightest}`,
+                    color: TEAL.deep,
+                    border: `1px solid ${TEAL.light}40`,
+                  }}
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
           </motion.div>
         ))}
       </StaggerContainer>
@@ -546,7 +908,7 @@ function FeaturesSection() {
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   SECTION 4 — HOW IT WORKS
+   6. HOW IT WORKS
    ════════════════════════════════════════════════════════════════════ */
 
 const steps = [
@@ -575,45 +937,79 @@ const steps = [
 
 function HowItWorksSection() {
   return (
-    <Section className="bg-background" id="cara-kerja">
-      <SectionHeader
-        badge="Cara Kerja"
-        title="Sederhana, Cepat, & Efektif"
-        description="Tiga langkah mudah untuk mulai mengukur dan meningkatkan pengalaman pasien"
-      />
+    <Section id="cara-kerja" style={{ backgroundColor: '#FFFFFF' }}>
+      <FadeUp className="mb-12 text-center md:mb-16">
+        <div
+          className="mb-4 inline-flex items-center rounded-full px-4 py-1.5 text-sm font-medium lp-font-body"
+          style={{
+            backgroundColor: `${TEAL.light}15`,
+            color: TEAL.deep,
+          }}
+        >
+          Cara Kerja
+        </div>
+        <h2
+          className="lp-font-display text-3xl font-bold tracking-tight sm:text-4xl"
+          style={{ color: DARK[950] }}
+        >
+          Sederhana, Cepat, &amp; Efektif
+        </h2>
+        <p
+          className="mx-auto mt-4 max-w-2xl text-base lp-font-body sm:text-lg"
+          style={{ color: SLATE[500] }}
+        >
+          Tiga langkah mudah untuk mulai mengukur dan meningkatkan pengalaman
+          pasien
+        </p>
+      </FadeUp>
 
       <div className="relative">
-        {/* connector line (desktop) */}
-        <div className="absolute left-1/2 top-0 hidden h-full w-px -translate-x-1/2 bg-linear-to-b from-primary/20 via-primary/40 to-primary/20 lg:block" />
+        {/* Horizontal connector line (desktop) */}
+        <div
+          className="absolute top-[52px] left-[calc(16.67%+24px)] right-[calc(16.67%+24px)] hidden lg:block"
+          style={{
+            height: 2,
+            background: `linear-gradient(90deg, ${TEAL.light}30, ${TEAL.bright}50, ${TEAL.light}30)`,
+          }}
+        />
 
         <StaggerContainer className="grid gap-8 lg:grid-cols-3 lg:gap-6">
-          {steps.map((s, i) => (
-            <motion.div key={s.step} variants={staggerItem} className="relative">
-              <Card className="group h-full border-primary/10 text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/5">
-                <CardContent className="flex flex-col items-center p-8">
-                  {/* step number */}
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                    {s.step}
-                  </div>
+          {steps.map((s) => (
+            <motion.div
+              key={s.step}
+              variants={staggerItem}
+              className="relative flex flex-col items-center text-center"
+            >
+              {/* Step circle */}
+              <div
+                className="relative z-10 mb-6 flex h-[104px] w-[104px] items-center justify-center rounded-full"
+                style={{
+                  background: `linear-gradient(135deg, ${TEAL.deep}, ${TEAL.medium})`,
+                  boxShadow: `0 4px 24px ${TEAL.deep}35`,
+                }}
+              >
+                <s.icon className="h-10 w-10 text-white" />
+                <span
+                  className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white lp-font-display"
+                  style={{ backgroundColor: TEAL.bright }}
+                >
+                  {s.step}
+                </span>
+              </div>
 
-                  {/* icon */}
-                  <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-primary/10 to-primary/5 text-primary transition-transform duration-300 group-hover:scale-110">
-                    <s.icon className="h-8 w-8" />
-                  </div>
-
-                  <h3 className="mb-3 text-xl font-bold">{s.title}</h3>
-                  <p className="max-w-xs text-base leading-relaxed text-muted-foreground">
-                    {s.description}
-                  </p>
-                </CardContent>
-              </Card>
-
-              {/* arrow connector (mobile) */}
-              {i < steps.length - 1 && (
-                <div className="flex justify-center py-2 lg:hidden">
-                  <ArrowRight className="h-5 w-5 rotate-90 text-primary/40" />
-                </div>
-              )}
+              {/* Icon block below */}
+              <h3
+                className="lp-font-display mb-3 text-xl font-bold"
+                style={{ color: DARK[950] }}
+              >
+                {s.title}
+              </h3>
+              <p
+                className="max-w-xs text-base leading-relaxed lp-font-body"
+                style={{ color: SLATE[500] }}
+              >
+                {s.description}
+              </p>
             </motion.div>
           ))}
         </StaggerContainer>
@@ -623,82 +1019,370 @@ function HowItWorksSection() {
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   SECTION 5 — ABOUT / FOOTER
+   7. METHODOLOGY
+   ════════════════════════════════════════════════════════════════════ */
+
+function MethodologySection() {
+  const methodologyItems = [
+    {
+      icon: Layers,
+      title: 'SERVQUAL',
+      source: 'Parasuraman et al., 1988',
+      desc: '5 dimensi kualitas layanan — Tangibles, Reliability, Responsiveness, Assurance, dan Empathy — untuk evaluasi menyeluruh pengalaman pasien.',
+    },
+    {
+      icon: Activity,
+      title: 'Visual Analogue Scale',
+      source: 'VAS 0-10',
+      desc: 'Pengukuran subjektif tingkat nyeri pasien sebelum dan sesudah terapi akupuntur, dilengkapi grafik tren per kunjungan.',
+    },
+    {
+      icon: Star,
+      title: 'Net Promoter Score',
+      source: 'Reichheld, 2003',
+      desc: 'Indikator loyalitas dan rekomendasi pasien terhadap layanan rumah sakit, diukur secara real-time melalui dashboard.',
+    },
+  ]
+
+  return (
+    <Section id="metodologi" style={{ backgroundColor: '#FFFFFF' }}>
+      <FadeUp>
+        <div
+          className="mb-4 inline-flex items-center rounded-full px-4 py-1.5 text-sm font-medium lp-font-body"
+          style={{
+            backgroundColor: `${TEAL.light}15`,
+            color: TEAL.deep,
+          }}
+        >
+          Metodologi
+        </div>
+        <h2
+          className="lp-font-display text-3xl font-bold tracking-tight sm:text-4xl"
+          style={{ color: DARK[950] }}
+        >
+          Fondasi Ilmiah yang Kuat
+        </h2>
+        <p
+          className="mt-4 max-w-2xl text-base leading-relaxed lp-font-body sm:text-lg"
+          style={{ color: SLATE[500] }}
+        >
+          Sistem DPEMS dibangun berdasarkan kerangka penelitian yang
+          telah teruji dan diakui secara internasional dalam bidang
+          manajemen kesehatan dan patient experience.
+        </p>
+
+        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {methodologyItems.map((item) => (
+            <div
+              key={item.title}
+              className="rounded-2xl border p-6 transition-all duration-300"
+              style={{
+                backgroundColor: SLATE[50],
+                borderColor: `${SLATE[200]}66`,
+              }}
+            >
+              <div
+                className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl"
+                style={{
+                  backgroundColor: `${TEAL.light}20`,
+                }}
+              >
+                <item.icon className="h-5 w-5" style={{ color: TEAL.deep }} />
+              </div>
+              <h3
+                className="lp-font-display text-base font-semibold"
+                style={{ color: DARK[950] }}
+              >
+                {item.title}
+              </h3>
+              <span
+                className="text-xs font-medium lp-font-body"
+                style={{ color: TEAL.medium }}
+              >
+                {item.source}
+              </span>
+              <p
+                className="mt-2 text-sm leading-relaxed lp-font-body"
+                style={{ color: SLATE[500] }}
+              >
+                {item.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+      </FadeUp>
+    </Section>
+  )
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   8. CTA SECTION
+   ════════════════════════════════════════════════════════════════════ */
+
+function CtaSection() {
+  return (
+    <section
+      className="relative w-full py-20 md:py-28 overflow-hidden"
+      style={{
+        background: `linear-gradient(135deg, ${TEAL.deep}, ${TEAL.medium}, ${TEAL.deep})`,
+      }}
+    >
+      {/* Grid texture overlay */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-[0.04]"
+        style={{
+          backgroundImage: `
+            linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px)
+          `,
+          backgroundSize: '40px 40px',
+        }}
+      />
+
+      <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 text-center">
+        <FadeUp>
+          <div
+            className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium lp-font-body"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
+              color: '#FFFFFF',
+            }}
+          >
+            <Heart className="h-4 w-4" />
+            Partisipasi Anda Penting
+          </div>
+        </FadeUp>
+
+        <FadeUp delay={0.1}>
+          <h2
+            className="lp-font-display mx-auto max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl"
+            style={{ color: '#FFFFFF' }}
+          >
+            Suara Anda Membentuk Pelayanan yang Lebih Baik
+          </h2>
+        </FadeUp>
+
+        <FadeUp delay={0.2}>
+          <p
+            className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed lp-font-body"
+            style={{ color: 'rgba(255, 255, 255, 0.75)' }}
+          >
+            Setiap respons survei Anda berkontribusi pada penelitian
+            peningkatan mutu pelayanan kesehatan berbasis bukti di
+            RSU Ja&apos;far Medika Karanganyar.
+          </p>
+        </FadeUp>
+
+        <FadeUp delay={0.3}>
+          <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:gap-4 sm:justify-center">
+            <Link
+              href="/survey/consent"
+              className="inline-flex items-center gap-2 px-7 py-3.5 text-base font-semibold rounded-xl transition-all duration-200 hover:opacity-90"
+              style={{
+                backgroundColor: '#FFFFFF',
+                color: TEAL.deep,
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+              }}
+            >
+              Isi Survei Sekarang
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2 px-7 py-3.5 text-base font-semibold rounded-xl transition-all duration-200"
+              style={{
+                border: '2px solid rgba(255, 255, 255, 0.4)',
+                color: '#FFFFFF',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.7)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent'
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)'
+              }}
+            >
+              Buka Dashboard
+            </Link>
+          </div>
+        </FadeUp>
+      </div>
+    </section>
+  )
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   9. FOOTER
    ════════════════════════════════════════════════════════════════════ */
 
 function FooterSection() {
+  const navLinks = [
+    { label: 'Beranda', href: '/' },
+    { label: 'Fitur', href: '#fitur' },
+    { label: 'Cara Kerja', href: '#cara-kerja' },
+    { label: 'Metodologi', href: '#metodologi' },
+    { label: 'Isi Survei', href: '/survey/consent' },
+  ]
+
+  const badges = ['Integrative Medicine', 'Evidence-based', 'Patient Experience']
+
   return (
-    <footer className="border-t border-primary/10 bg-muted/30">
-      <Section className="py-12 md:py-16">
-        <div className="grid gap-10 md:grid-cols-2 md:gap-16">
-          {/* left — about */}
-          <FadeIn direction="right">
-            <div>
-              <div className="mb-4 flex items-center gap-2">
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                  <Cross className="h-5 w-5 text-primary" />
+    <footer style={{ backgroundColor: DARK[950] }}>
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-14 md:py-20">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-12">
+          {/* Col 1 — Brand */}
+          <div className="sm:col-span-2 lg:col-span-1">
+            <div className="flex items-center gap-2.5 mb-5">
+              <span
+                className="flex h-9 w-9 items-center justify-center rounded-lg"
+                style={{
+                  background: `linear-gradient(135deg, ${TEAL.deep}, ${TEAL.bright})`,
+                }}
+              >
+                <Cross className="h-5 w-5 text-white" />
+              </span>
+              <span
+                className="text-lg font-bold text-white lp-font-display"
+              >
+                DPEMS
+              </span>
+            </div>
+            <p
+              className="text-sm leading-relaxed lp-font-body mb-5"
+              style={{ color: SLATE[400] }}
+            >
+              Digital Patient Experience Monitoring System — proyek penelitian
+              akademis untuk meningkatkan kualitas layanan integratif di
+              RSU Ja&apos;far Medika Karanganyar.
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {badges.map((b) => (
+                <span
+                  key={b}
+                  className="inline-flex rounded-md px-2.5 py-0.5 text-xs font-medium lp-font-body"
+                  style={{
+                    backgroundColor: 'rgba(20, 184, 166, 0.08)',
+                    color: TEAL.light,
+                    border: '1px solid rgba(20, 184, 166, 0.12)',
+                  }}
+                >
+                  {b}
                 </span>
-                <div>
-                  <p className="font-semibold text-foreground">
-                    RSU Ja&apos;far Medika
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Mojogedang, Karanganyar — Jawa Tengah
-                  </p>
-                </div>
-              </div>
-              <p className="mt-4 leading-relaxed text-muted-foreground">
-                DPEMS adalah proyek penelitian akademis yang bertujuan
-                mengembangkan sistem pemantauan pengalaman pasien berbasis
-                digital untuk meningkatkan kualitas layanan integratif —
-                akupunktur dan herbal/kelor — dalam rehabilitasi stroke dan
-                manajemen nyeri. Sistem ini dirancang dengan pendekatan
-                evidence-based dan islamic holistic care.
-              </p>
+              ))}
             </div>
-          </FadeIn>
+          </div>
 
-          {/* right — author */}
-          <FadeIn direction="left">
-            <div className="md:text-right">
-              <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-                Peneliti
-              </p>
-              <p className="mt-2 text-xl font-bold">Imam Maliki</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Program Studi Magister — Institusi Akademis
-              </p>
+          {/* Col 2 — Navigation */}
+          <div>
+            <h4
+              className="lp-font-display mb-5 text-sm font-semibold uppercase tracking-wider"
+              style={{ color: SLATE[300] }}
+            >
+              Navigasi
+            </h4>
+            <ul className="space-y-3">
+              {navLinks.map((l) => (
+                <li key={l.href}>
+                  <Link
+                    href={l.href}
+                    className="text-sm font-medium lp-font-body transition-colors"
+                    style={{ color: SLATE[500] }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = TEAL.light)}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = SLATE[500])}
+                  >
+                    {l.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-              <div className="mt-6 flex flex-wrap gap-2 md:justify-end">
-                <Badge variant="outline" className="gap-1.5 text-xs">
-                  <Leaf className="h-3 w-3" />
-                  Integrative Medicine
-                </Badge>
-                <Badge variant="outline" className="gap-1.5 text-xs">
-                  <Activity className="h-3 w-3" />
-                  Patient Experience
-                </Badge>
-                <Badge variant="outline" className="gap-1.5 text-xs">
-                  <Shield className="h-3 w-3" />
-                  Evidence-based
-                </Badge>
-              </div>
-            </div>
-          </FadeIn>
+          {/* Col 3 — Researcher */}
+          <div>
+            <h4
+              className="lp-font-display mb-5 text-sm font-semibold uppercase tracking-wider"
+              style={{ color: SLATE[300] }}
+            >
+              Peneliti
+            </h4>
+            <p
+              className="lp-font-display text-base font-bold"
+              style={{ color: '#FFFFFF' }}
+            >
+              Imam Maliki
+            </p>
+            <p className="mt-1 text-sm lp-font-body" style={{ color: SLATE[500] }}>
+              Program Studi Magister
+            </p>
+            <p className="text-sm lp-font-body" style={{ color: SLATE[500] }}>
+              RSU Ja&apos;far Medika
+            </p>
+            <p className="text-sm lp-font-body" style={{ color: SLATE[500] }}>
+              Karanganyar, Jawa Tengah
+            </p>
+          </div>
+
+          {/* Col 4 — Quick Info */}
+          <div>
+            <h4
+              className="lp-font-display mb-5 text-sm font-semibold uppercase tracking-wider"
+              style={{ color: SLATE[300] }}
+            >
+              Informasi
+            </h4>
+            <ul className="space-y-3">
+              <li>
+                <span
+                  className="text-xs font-medium lp-font-body"
+                  style={{ color: SLATE[500] }}
+                >
+                  Tempat
+                </span>
+                <p className="text-sm font-medium text-white lp-font-body">
+                  Poli Akupuntur &amp; Herbal
+                </p>
+              </li>
+              <li>
+                <span
+                  className="text-xs font-medium lp-font-body"
+                  style={{ color: SLATE[500] }}
+                >
+                  Responden
+                </span>
+                <p className="text-sm font-medium text-white lp-font-body">
+                  Pasien Stroke &amp; Nyeri Kronis
+                </p>
+              </li>
+              <li>
+                <span
+                  className="text-xs font-medium lp-font-body"
+                  style={{ color: SLATE[500] }}
+                >
+                  Metode
+                </span>
+                <p className="text-sm font-medium text-white lp-font-body">
+                  SERVQUAL + VAS + NPS
+                </p>
+              </li>
+            </ul>
+          </div>
         </div>
 
-        {/* bottom bar */}
-        <div className="mt-10 flex flex-col items-center gap-2 border-t border-primary/10 pt-6 text-center">
-          <p className="text-sm text-muted-foreground">
+        {/* Bottom bar */}
+        <div
+          className="mt-12 flex flex-col items-center gap-2 pt-6 text-center"
+          style={{ borderTop: '1px solid rgba(148, 163, 184, 0.08)' }}
+        >
+          <p className="text-sm lp-font-body" style={{ color: SLATE[500] }}>
             &copy; {new Date().getFullYear()} DPEMS &mdash; Digital Patient
             Experience Monitoring System
           </p>
-          <p className="text-xs text-muted-foreground/70">
-            Dikembangkan sebagai bagian dari penelitian peningkatan mutu
-            pelayanan kesehatan berbasis bukti
+          <p className="text-xs lp-font-body" style={{ color: SLATE[600] }}>
+            Mojogedang, Karanganyar — Jawa Tengah
           </p>
         </div>
-      </Section>
+      </div>
     </footer>
   )
 }
@@ -709,11 +1393,15 @@ function FooterSection() {
 
 export default function Home() {
   return (
-    <main className="min-h-screen scroll-smooth" suppressHydrationWarning>
+    <main className="min-h-screen" style={{ backgroundColor: '#FFFFFF' }}>
+      <Navbar />
       <HeroSection />
+      <TrustStrip />
       <MetricsSection />
       <FeaturesSection />
       <HowItWorksSection />
+      <MethodologySection />
+      <CtaSection />
       <FooterSection />
     </main>
   )

@@ -3,37 +3,27 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Users, TrendingDown, Star, Heart, Activity, MessageCircle,
-  BarChart3, Download, RefreshCw, Shield, AlertTriangle, Building2, CheckCircle2,
+  BarChart3, RefreshCw, Shield, AlertTriangle, CheckCircle2,
   Bell, Search, ChevronLeft, ChevronRight, FileSpreadsheet, FileText,
-  X, ChevronDown, ChevronsUpDown, Filter, Database
+  X, Filter, Database, SlidersHorizontal, ChevronDown, Eye, Menu, Home
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Progress } from '@/components/ui/progress'
-import { Separator } from '@/components/ui/separator'
-import { Input } from '@/components/ui/input'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
-} from '@/components/ui/select'
-import {
-  Accordion, AccordionContent, AccordionItem, AccordionTrigger
-} from '@/components/ui/accordion'
-import {
-  Table, TableHeader, TableBody, TableHead, TableRow, TableCell
-} from '@/components/ui/table'
 import {
   ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell,
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  XAxis, YAxis, CartesianGrid, Tooltip, Area, AreaChart
+  XAxis, YAxis, CartesianGrid, Tooltip, Area, AreaChart, Legend
 } from 'recharts'
-import { cn } from '@/lib/utils'
-import { KPICard } from '@/components/dashboard/KPICard'
-import type { DashboardData, Survey } from '@/lib/types'
+import { motion } from 'framer-motion'
+import type { DashboardData } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 
+// ─── Color Constants ────────────────────────────────────────────
+const TEAL = '#0D9488'
+const TEAL_LIGHT = 'rgba(13,148,136,0.15)'
+const AMBER = '#D97706'
+const RED = '#DC2626'
+const BLUE = '#2563EB'
 const NPS_COLORS = ['#059669', '#d97706', '#dc2626']
+
 const CONDITION_TYPES = [
   'Stroke / Pasca Stroke',
   'Nyeri Sendi (Rematik/OA)',
@@ -45,6 +35,7 @@ const CONDITION_TYPES = [
   'Lainnya',
 ]
 
+// ─── Types ──────────────────────────────────────────────────────
 interface SurveyRow {
   id: string
   submitted_at: string
@@ -81,12 +72,33 @@ interface SurveysResponse {
   totalPages: number
 }
 
+// ─── Custom Tooltip ─────────────────────────────────────────────
+function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color?: string }>; label?: string }) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="bg-white/95 backdrop-blur-sm border border-slate-200 rounded-lg px-3 py-2 shadow-lg text-xs">
+      {label && <p className="text-slate-500 mb-1 font-medium">{label}</p>}
+      {payload.map((p, i) => (
+        <p key={i} className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.color || TEAL }} />
+          <span className="text-slate-600">{p.name}:</span>
+          <span className="font-semibold text-slate-800">{p.value}</span>
+        </p>
+      ))}
+    </div>
+  )
+}
+
+// ─── Main Component ─────────────────────────────────────────────
 export default function DashboardPage() {
+  // ─── State ────────────────────────────────────────────────────
   const [data, setData] = useState<DashboardData | null>(null)
   const [period, setPeriod] = useState('30')
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('overview')
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
-  // Data Survei tab state
+  // Surveys tab state
   const [surveysData, setSurveysData] = useState<SurveysResponse | null>(null)
   const [surveysLoading, setSurveysLoading] = useState(false)
   const [search, setSearch] = useState('')
@@ -94,11 +106,25 @@ export default function DashboardPage() {
   const [dateTo, setDateTo] = useState('')
   const [genderFilter, setGenderFilter] = useState('')
   const [conditionFilter, setConditionFilter] = useState('')
+  const [npsCategory, setNpsCategory] = useState('')
   const [npsMin, setNpsMin] = useState('')
   const [npsMax, setNpsMax] = useState('')
   const [surveyPage, setSurveyPage] = useState(1)
+  const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const surveysFetchRef = useRef(0)
 
+  // Feedback filters
+  const [fbSearch, setFbSearch] = useState('')
+  const [fbCondition, setFbCondition] = useState('')
+  const [fbNpsCategory, setFbNpsCategory] = useState('')
+  const [fbDateFrom, setFbDateFrom] = useState('')
+  const [fbDateTo, setFbDateTo] = useState('')
+  const [fbFilterOpen, setFbFilterOpen] = useState(false)
+
+  // Data Survei filter panel
+  const [dataFilterOpen, setDataFilterOpen] = useState(false)
+
+  // ─── Data Fetching ────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
@@ -144,10 +170,9 @@ export default function DashboardPage() {
     }
   }, [search, dateFrom, dateTo, genderFilter, conditionFilter, npsMin, npsMax])
 
-  // Fetch dashboard data on period change
+  // ─── Effects ──────────────────────────────────────────────────
   useEffect(() => { fetchData() }, [fetchData])
 
-  // Realtime subscription for auto-refresh
   useEffect(() => {
     const supabase = createClient()
     const channel = supabase
@@ -159,19 +184,30 @@ export default function DashboardPage() {
     return () => { supabase.removeChannel(channel) }
   }, [fetchData])
 
-  // Fetch surveys when tab is active or filters change
   useEffect(() => {
     fetchSurveys(1)
   }, [fetchSurveys])
 
-  const resetFilters = () => {
+  // ─── Helpers ──────────────────────────────────────────────────
+  const resetSurveysFilters = () => {
     setSearch('')
     setDateFrom('')
     setDateTo('')
     setGenderFilter('')
     setConditionFilter('')
+    setNpsCategory('')
     setNpsMin('')
     setNpsMax('')
+  }
+
+  const hasSurveysFilters = search || dateFrom || dateTo || genderFilter || conditionFilter || npsMin || npsMax || npsCategory
+
+  const resetFbFilters = () => {
+    setFbSearch('')
+    setFbCondition('')
+    setFbNpsCategory('')
+    setFbDateFrom('')
+    setFbDateTo('')
   }
 
   const getExportUrl = (type: 'excel' | 'pdf') => {
@@ -187,6 +223,7 @@ export default function DashboardPage() {
     return `/api/export/${type}?${params.toString()}`
   }
 
+  // ─── Computed Data ────────────────────────────────────────────
   const servqualData = data ? [
     { dimension: 'Tangibles', score: data.servqual.tangibles, fullMark: 5 },
     { dimension: 'Reliability', score: data.servqual.reliability, fullMark: 5 },
@@ -207,674 +244,1197 @@ export default function DashboardPage() {
     { dimension: 'Rasa Kekeluargaan', score: data.spiritualAvg.familyFeeling },
   ] : []
 
+  // Filtered feedback
+  const filteredFeedback = data?.recentFeedback.filter((fb) => {
+    if (fbNpsCategory === 'promoter' && (!fb.npsScore || fb.npsScore < 9)) return false
+    if (fbNpsCategory === 'passive' && (!fb.npsScore || fb.npsScore < 7 || fb.npsScore > 8)) return false
+    if (fbNpsCategory === 'detractor' && (!fb.npsScore || fb.npsScore > 6)) return false
+    if (fbCondition && (fb as unknown as Record<string, string>).conditionType !== fbCondition) return false
+    if (fbDateFrom && fb.submittedAt < fbDateFrom) return false
+    if (fbDateTo && fb.submittedAt > fbDateTo + 'T23:59:59') return false
+    if (fbSearch) {
+      const q = fbSearch.toLowerCase()
+      const haystack = [fb.testimonial, fb.bestExperience, fb.suggestions, fb.improvementSuggestion].filter(Boolean).join(' ').toLowerCase()
+      if (!haystack.includes(q)) return false
+    }
+    return true
+  }) ?? []
+
+  // ─── Loading ──────────────────────────────────────────────────
   if (loading || !data) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center space-y-4">
-          <RefreshCw className="w-10 h-10 text-emerald-500 animate-spin mx-auto" />
-          <p className="text-gray-500 font-medium">Memuat data dashboard...</p>
+          <RefreshCw className="w-10 h-10 text-teal-500 animate-spin mx-auto" />
+          <p className="text-slate-500 font-medium font-[family-name:var(--font-body)]">Memuat data dashboard...</p>
         </div>
       </div>
     )
   }
 
-  // Safe unitPerformance with fallback
-  const unitPerf = data.unitPerformance && data.unitPerformance.length > 0
-    ? data.unitPerformance
-    : [{ unitName: 'Poli Akupuntur & Herbal', unitType: 'Integrative Medicine', surveyCount: data.totalSurveys, avgSatisfaction: data.overallSatisfaction, avgPainReduction: data.avgPainReduction }]
-  const sortedUnits = [...unitPerf].sort((a, b) => b.avgSatisfaction - a.avgSatisfaction)
-  const topUnit = sortedUnits[0]
-  const worstServqual = Math.min(data.servqual.tangibles, data.servqual.reliability, data.servqual.responsiveness, data.servqual.assurance, data.servqual.empathy)
+  // ─── KPIs ─────────────────────────────────────────────────────
+  const kpis = [
+    {
+      icon: Users, title: 'Total Responden',
+      value: data.totalSurveys.toString(),
+      subtitle: `Response Rate: ${data.responseRate}%`,
+      trend: data.totalSurveys > 0 ? 'up' : 'down' as const,
+      color: 'teal' as const,
+    },
+    {
+      icon: TrendingDown, title: 'Pengurangan Nyeri',
+      value: `${data.avgPainReduction}%`,
+      subtitle: 'VAS Score reduction',
+      trend: data.avgPainReduction > 0 ? 'up' : 'down' as const,
+      color: 'blue' as const,
+    },
+    {
+      icon: Star, title: 'NPS Score',
+      value: data.nps.score > 0 ? `+${data.nps.score}` : `${data.nps.score}`,
+      subtitle: `P: ${data.nps.promoters} | D: ${data.nps.detractors}`,
+      trend: data.nps.score > 0 ? 'up' : 'down' as const,
+      color: 'amber' as const,
+    },
+    {
+      icon: Heart, title: 'Kepuasan Overall',
+      value: `${data.overallSatisfaction}/5`,
+      subtitle: 'SERVQUAL Score',
+      trend: data.overallSatisfaction >= 4 ? 'up' : 'down' as const,
+      color: 'rose' as const,
+    },
+  ]
 
-  const hasFilters = search || dateFrom || dateTo || genderFilter || conditionFilter || npsMin || npsMax
+  const kpiColorMap: Record<string, { bg: string; iconBg: string; trendUp: string; trendDown: string }> = {
+    teal: { bg: 'bg-teal-50', iconBg: 'bg-teal-600', trendUp: 'text-teal-600', trendDown: 'text-red-500' },
+    blue: { bg: 'bg-blue-50', iconBg: 'bg-blue-600', trendUp: 'text-teal-600', trendDown: 'text-red-500' },
+    amber: { bg: 'bg-amber-50', iconBg: 'bg-amber-500', trendUp: 'text-teal-600', trendDown: 'text-red-500' },
+    rose: { bg: 'bg-rose-50', iconBg: 'bg-rose-500', trendUp: 'text-teal-600', trendDown: 'text-red-500' },
+  }
 
+  // ─── Tabs ─────────────────────────────────────────────────────
+  const tabs = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'clinical', label: 'Clinical' },
+    { id: 'servqual', label: 'SERVQUAL' },
+    { id: 'feedback', label: 'Feedback' },
+    { id: 'data', label: 'Data Survei' },
+  ]
+
+  // ─── Render ───────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Top Bar */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-350 mx-auto px-4 lg:px-6 py-3 flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg lg:text-xl font-bold text-gray-800">DPEMS Dashboard</h1>
-              <span className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-200">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                </span>
-                Live
+    <div className="min-h-screen bg-slate-50 font-[family-name:var(--font-body)]">
+      {/* ═══ NAVBAR ═══ */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-md border-b border-slate-700/50">
+        <div className="max-w-[1440px] mx-auto px-4 lg:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <a
+              href="/"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50 transition-colors"
+              title="Kembali ke Beranda"
+            >
+              <Home className="w-4 h-4" />
+            </a>
+            <h1 className="text-base lg:text-lg font-bold text-white tracking-tight font-[family-name:var(--font-display)]">
+              DPEMS Dashboard
+            </h1>
+            <span className="flex items-center gap-1.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-2.5 py-1 rounded-full border border-emerald-500/20">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
               </span>
-            </div>
-            <p className="text-xs text-gray-500">{data.hospital?.name || 'RSU Ja\'far Medika Karanganyar'}</p>
+              Live
+            </span>
           </div>
+          <p className="hidden lg:block text-xs text-slate-400">
+            {data.hospital?.name || "RSU Ja'far Medika Karanganyar"}
+          </p>
           <div className="flex items-center gap-2">
+            {/* Period + Refresh — hidden on mobile (moved to nav panel) */}
             <select
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
-              className="text-sm border rounded-lg px-3 py-2 bg-gray-50 text-gray-700"
+              className="hidden lg:block text-sm bg-slate-800 border border-slate-600 text-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500/50"
             >
               <option value="7">7 Hari</option>
               <option value="30">30 Hari</option>
               <option value="90">90 Hari</option>
               <option value="365">1 Tahun</option>
             </select>
-            <Button variant="outline" size="sm" onClick={fetchData}>
+            <button
+              onClick={fetchData}
+              className="hidden lg:flex p-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+            >
               <RefreshCw className="w-4 h-4" />
-            </Button>
+            </button>
+            {/* Hamburger — mobile only */}
+            <button
+              onClick={() => setMobileNavOpen((v) => !v)}
+              className="lg:hidden p-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+              aria-label="Toggle navigation"
+            >
+              {mobileNavOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
         </div>
-      </div>
+      </nav>
 
-      <div className="max-w-350 mx-auto px-4 lg:px-6 py-6 space-y-6">
-        {/* KPI Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KPICard icon={Users} title="Total Responden" value={data.totalSurveys.toString()} subtitle={`Response Rate: ${data.responseRate}%`} trend="up" color="emerald" delay={0} />
-          <KPICard icon={TrendingDown} title="Pengurangan Nyeri" value={`${data.avgPainReduction}%`} subtitle="VAS Score reduction" trend={data.avgPainReduction > 0 ? 'up' : 'down'} color="blue" delay={1} />
-          <KPICard icon={Star} title="NPS Score" value={data.nps.score > 0 ? `+${data.nps.score}` : `${data.nps.score}`} subtitle={`Promoters: ${data.nps.promoters} | Detractors: ${data.nps.detractors}`} trend={data.nps.score > 0 ? 'up' : 'down'} color="amber" delay={2} />
-          <KPICard icon={Heart} title="Kepuasan Overall" value={`${data.overallSatisfaction}/5`} subtitle="SERVQUAL Score" trend={data.overallSatisfaction >= 4 ? 'up' : 'down'} color="rose" delay={3} />
+      {/* ═══ MOBILE NAV PANEL ═══ */}
+      <motion.div
+        initial={false}
+        animate={{ height: mobileNavOpen ? 'auto' : 0, opacity: mobileNavOpen ? 1 : 0 }}
+        transition={{ duration: 0.2 }}
+        className="lg:hidden fixed top-16 left-0 right-0 z-40 bg-slate-800/98 backdrop-blur-lg border-b border-slate-700/50 overflow-hidden"
+        style={{ height: 0 }}
+      >
+        <div className="max-w-[1440px] mx-auto px-4 py-3 space-y-2">
+          {/* Tab Navigation */}
+          <div className="grid grid-cols-3 gap-1.5">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => { setActiveTab(tab.id); setMobileNavOpen(false) }}
+                className={`flex flex-col items-center gap-0.5 py-2.5 rounded-lg text-xs font-medium transition-colors ${
+                  activeTab === tab.id
+                    ? 'bg-teal-600/20 text-teal-400 border border-teal-500/30'
+                    : 'text-slate-400 hover:bg-slate-700/50 hover:text-slate-200 border border-transparent'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          {/* Period Selector + Refresh */}
+          <div className="flex items-center gap-2 pt-1 border-t border-slate-700/50">
+            <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Periode</span>
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value)}
+              className="flex-1 text-xs bg-slate-700/80 border border-slate-600 text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500/50"
+            >
+              <option value="7">7 Hari</option>
+              <option value="30">30 Hari</option>
+              <option value="90">90 Hari</option>
+              <option value="365">1 Tahun</option>
+            </select>
+            <button
+              onClick={() => { fetchData(); setMobileNavOpen(false) }}
+              className="p-2 rounded-lg bg-slate-700/80 border border-slate-600 text-slate-300 hover:bg-slate-600 hover:text-white transition-colors"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          {/* Hospital Name */}
+          <p className="text-[11px] text-slate-500 pb-0.5">
+            {data.hospital?.name || "RSU Ja'far Medika Karanganyar"}
+          </p>
+        </div>
+      </motion.div>
+
+      {/* ═══ MAIN CONTENT ═══ */}
+      <main className="pt-[80px] max-w-[1440px] mx-auto px-4 lg:px-6 py-6 space-y-6">
+        {/* ─── KPI CARDS ─── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+          {kpis.map((kpi, idx) => {
+            const Icon = kpi.icon
+            const c = kpiColorMap[kpi.color]
+            return (
+              <motion.div
+                key={kpi.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.08, duration: 0.35 }}
+                className="bg-white rounded-xl border border-slate-200 p-4 lg:p-5 hover:shadow-lg hover:border-slate-300 transition-all duration-300"
+              >
+                <div className="flex items-start justify-between">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${c.iconBg} shadow-sm`}>
+                    <Icon className="w-5 h-5 text-white" />
+                  </div>
+                  {kpi.trend === 'up' ? (
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full bg-teal-50 ${c.trendUp}`}>
+                      ↑
+                    </span>
+                  ) : (
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-500">
+                      ↓
+                    </span>
+                  )}
+                </div>
+                <div className="mt-3">
+                  <p className="text-2xl lg:text-3xl font-extrabold text-slate-800 tracking-tight font-[family-name:var(--font-display)]">
+                    {kpi.value}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5 font-medium">{kpi.title}</p>
+                  <p className="text-[11px] font-semibold mt-1 text-teal-600">{kpi.subtitle}</p>
+                </div>
+                <div className={`mt-3 h-1 rounded-full ${c.iconBg}`} style={{ width: '40%' }} />
+              </motion.div>
+            )
+          })}
         </div>
 
-        {/* Alerts Bar */}
+        {/* ─── ALERT BAR ─── */}
         {data.recentAlerts && data.recentAlerts.length > 0 && (
-          <Card className="border-amber-200 bg-amber-50">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Bell className="w-5 h-5 text-amber-600 shrink-0" />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-amber-800">
-                    {data.recentAlerts.length} Alert Baru
-                  </p>
-                  <p className="text-xs text-amber-600">
-                    {data.recentAlerts[0]?.message || 'Review diperlukan'}
-                  </p>
-                </div>
-                <Badge className="bg-amber-200 text-amber-800">{data.recentAlerts[0]?.severity || 'medium'}</Badge>
-              </div>
-            </CardContent>
-          </Card>
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3"
+          >
+            <Bell className="w-5 h-5 text-amber-600 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-amber-800">
+                {data.recentAlerts.length} Alert Baru
+              </p>
+              <p className="text-xs text-amber-600 truncate">
+                {data.recentAlerts[0]?.message || 'Review diperlukan'}
+              </p>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 shrink-0 uppercase">
+              {data.recentAlerts[0]?.severity || 'medium'}
+            </span>
+          </motion.div>
         )}
 
-        {/* Main Tabs */}
-        <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5 h-auto p-1">
-            <TabsTrigger value="overview" className="text-xs sm:text-sm py-2">Overview</TabsTrigger>
-            <TabsTrigger value="clinical" className="text-xs sm:text-sm py-2">Clinical</TabsTrigger>
-            <TabsTrigger value="servqual" className="text-xs sm:text-sm py-2">SERVQUAL</TabsTrigger>
-            <TabsTrigger value="feedback" className="text-xs sm:text-sm py-2">Feedback</TabsTrigger>
-            <TabsTrigger value="data" className="text-xs sm:text-sm py-2">Data Survei</TabsTrigger>
-          </TabsList>
+        {/* ─── TAB NAV ─── */}
+        <div className="border-b border-slate-200">
+          <div className="overflow-x-auto">
+            <div className="flex gap-1 min-w-max">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`relative px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? 'text-teal-700'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {tab.label}
+                  {activeTab === tab.id && (
+                    <motion.div
+                      layoutId="tab-indicator"
+                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-600 rounded-full"
+                    />
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
 
-          {/* OVERVIEW */}
-          <TabsContent value="overview" className="space-y-6">
-            <div className="grid lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-bold flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5 text-emerald-500" /> Tren Survei Harian
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-70">
+        {/* ═══════════════════════════════════════════════════════
+            TAB: OVERVIEW
+        ═══════════════════════════════════════════════════════ */}
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+            {/* Charts Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Trend Chart */}
+              <div className="bg-white rounded-xl border border-slate-200 p-5">
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 font-[family-name:var(--font-display)]">
+                  <BarChart3 className="w-4 h-4 text-teal-600" />
+                  Tren Survei Harian
+                </h3>
+                <div className="h-64 mt-3">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={data.trendData}>
+                      <defs>
+                        <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={TEAL} stopOpacity={0.25} />
+                          <stop offset="95%" stopColor={TEAL} stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v: string) => v.slice(5)} stroke="#94a3b8" />
+                      <YAxis tick={{ fontSize: 11 }} allowDecimals={false} stroke="#94a3b8" />
+                      <Tooltip content={<ChartTooltip />} />
+                      <Area type="monotone" dataKey="count" stroke={TEAL} fill="url(#colorCount)" strokeWidth={2} name="Survei" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* NPS Distribution */}
+              <div className="bg-white rounded-xl border border-slate-200 p-5">
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 font-[family-name:var(--font-display)]">
+                  <Star className="w-4 h-4 text-amber-500" />
+                  NPS Distribution
+                </h3>
+                <div className="flex items-center gap-4 mt-3">
+                  <div className="h-56 w-56 shrink-0">
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={data.trendData}>
-                        <defs>
-                          <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#059669" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#059669" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v) => v.slice(5)} />
-                        <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                        <Tooltip />
-                        <Area type="monotone" dataKey="count" stroke="#059669" fill="url(#colorCount)" strokeWidth={2} name="Survei" />
-                      </AreaChart>
+                      <PieChart>
+                        <Pie data={npsData} cx="50%" cy="50%" innerRadius={60} outerRadius={95} paddingAngle={4} dataKey="value">
+                          {npsData.map((entry, i) => (
+                            <Cell key={i} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<ChartTooltip />} />
+                      </PieChart>
                     </ResponsiveContainer>
                   </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-bold flex items-center gap-2">
-                    <Star className="w-5 h-5 text-amber-500" /> NPS Distribution
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-4">
-                    <div className="h-70 w-70">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie data={npsData} cx="50%" cy="50%" innerRadius={70} outerRadius={110} paddingAngle={4} dataKey="value">
-                            {npsData.map((entry, i) => (<Cell key={i} fill={entry.color} />))}
-                          </Pie>
-                          <Tooltip />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="space-y-3 flex-1">
-                      <div className="text-center mb-2">
-                        <p className="text-4xl font-bold text-gray-800">{data.nps.score > 0 ? `+${data.nps.score}` : data.nps.score}</p>
-                        <p className="text-sm text-gray-500">NPS Score</p>
-                      </div>
-                      {npsData.map((item, i) => (
-                        <div key={i} className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                            <span className="text-sm">{item.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold">{item.value}</span>
-                            <span className="text-xs text-gray-400">({data.nps.total > 0 ? Math.round((item.value / data.nps.total) * 100) : 0}%)</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="grid lg:grid-cols-3 gap-4">
-              <Card className="bg-linear-to-br from-emerald-50 to-emerald-100 border-emerald-200">
-                <CardContent className="p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shrink-0"><CheckCircle2 className="w-5 h-5 text-white" /></div>
-                    <div>
-                      <p className="font-bold text-emerald-800 text-sm">Top Performer</p>
-                      <p className="text-emerald-600 text-xs mt-1">{topUnit?.unitName || '-'}</p>
-                      <p className="text-emerald-500 text-xs mt-0.5">OSS {(topUnit?.avgSatisfaction || 0).toFixed(2)}/5</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="bg-linear-to-br from-amber-50 to-amber-100 border-amber-200">
-                <CardContent className="p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center shrink-0"><AlertTriangle className="w-5 h-5 text-white" /></div>
-                    <div>
-                      <p className="font-bold text-amber-800 text-sm">Perlu Perhatian</p>
-                      <p className="text-amber-600 text-xs mt-1">Responsiveness: {data.servqual.responsiveness}/5</p>
-                      <p className="text-amber-500 text-xs mt-0.5">Dimensi terendah</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="bg-linear-to-br from-blue-50 to-blue-100 border-blue-200">
-                <CardContent className="p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center shrink-0"><Shield className="w-5 h-5 text-white" /></div>
-                    <div>
-                      <p className="font-bold text-blue-800 text-sm">Spiritual Wellness</p>
-                      <p className="text-blue-600 text-xs mt-1">Indeks Spiritual rata-rata:</p>
-                      <p className="text-blue-500 text-xs mt-0.5">
-                        {((data.spiritualAvg.spiritualComfort + data.spiritualAvg.culturalRespect + data.spiritualAvg.familyFeeling) / 3).toFixed(2)}/5
+                  <div className="flex-1 min-w-0 space-y-3">
+                    <div className="text-center mb-2">
+                      <p className="text-3xl lg:text-4xl font-bold text-slate-800 font-[family-name:var(--font-display)]">
+                        {data.nps.score > 0 ? `+${data.nps.score}` : data.nps.score}
                       </p>
+                      <p className="text-xs text-slate-500">NPS Score</p>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          {/* CLINICAL */}
-          <TabsContent value="clinical" className="space-y-6">
-            <div className="grid lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-bold flex items-center gap-2"><Activity className="w-5 h-5 text-red-500" /> Pengurangan Nyeri per Unit</CardTitle>
-                  <CardDescription>Rata-rata penurunan VAS Score (%)</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-75">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={sortedUnits.sort((a, b) => b.avgPainReduction - a.avgPainReduction)} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis type="number" tick={{ fontSize: 11 }} />
-                        <YAxis type="category" dataKey="unitName" width={160} tick={{ fontSize: 11 }} />
-                        <Tooltip formatter={(v) => [`${v ?? 0}%`, 'Pengurangan Nyeri']} />
-                        <Bar dataKey="avgPainReduction" fill="#059669" radius={[0, 6, 6, 0]} name="Pengurangan Nyeri (%)" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-bold flex items-center gap-2"><Shield className="w-5 h-5 text-purple-500" /> Spiritual & Cultural Wellness</CardTitle>
-                  <CardDescription>Rata-rata skor spiritual pasien (1-5)</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-75">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RadarChart data={spiritualData} cx="50%" cy="50%" outerRadius="80%">
-                        <PolarGrid stroke="#e5e7eb" />
-                        <PolarAngleAxis dataKey="dimension" tick={{ fontSize: 10 }} />
-                        <PolarRadiusAxis angle={90} domain={[0, 5]} tick={{ fontSize: 10 }} />
-                        <Radar name="Skor" dataKey="score" stroke="#059669" fill="#059669" fillOpacity={0.3} strokeWidth={2} />
-                      </RadarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-bold flex items-center gap-2"><Users className="w-5 h-5 text-emerald-500" /> Profil Demografi Pasien</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-700 mb-2">Kelompok Usia</p>
-                    {Object.entries(data.demographics.ageRangeDistribution).sort((a, b) => b[1] - a[1]).map(([range, c]) => (
-                      <div key={range} className="flex items-center gap-2 mb-1">
-                        <div className="flex-1 bg-gray-100 rounded-full h-3">
-                          <div className="bg-emerald-500 rounded-full h-3 transition-all" style={{ width: `${data.totalSurveys > 0 ? (c / data.totalSurveys) * 100 : 0}%` }} />
+                    {npsData.map((item) => (
+                      <div key={item.name} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                          <span className="text-sm text-slate-600">{item.name}</span>
                         </div>
-                        <span className="text-xs text-gray-600 w-10">{range}</span>
-                        <span className="text-xs font-bold w-6 text-right">{c}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-slate-800">{item.value}</span>
+                          <span className="text-[11px] text-slate-400">
+                            ({data.nps.total > 0 ? Math.round((item.value / data.nps.total) * 100) : 0}%)
+                          </span>
+                        </div>
                       </div>
                     ))}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-700 mb-2">Gender</p>
-                    {Object.entries(data.demographics.genderDistribution).map(([g, c]) => (
-                      <div key={g} className="flex items-center gap-2 mb-1">
-                        <div className="flex-1 bg-gray-100 rounded-full h-3">
-                          <div className="bg-blue-500 rounded-full h-3 transition-all" style={{ width: `${data.totalSurveys > 0 ? (c / data.totalSurveys) * 100 : 0}%` }} />
-                        </div>
-                        <span className="text-xs text-gray-600 w-16">{g === 'L' ? 'Laki-laki' : 'Perempuan'}</span>
-                        <span className="text-xs font-bold w-6 text-right">{c}</span>
-                      </div>
-                    ))}
-                    <p className="text-sm font-semibold text-gray-700 mt-4 mb-2">Jenis Pasien</p>
-                    {Object.entries(data.demographics.patientTypeDistribution).map(([t, c]) => (
-                      <div key={t} className="flex items-center gap-2 mb-1">
-                        <div className="flex-1 bg-gray-100 rounded-full h-3">
-                          <div className="bg-amber-500 rounded-full h-3 transition-all" style={{ width: `${data.totalSurveys > 0 ? (c / data.totalSurveys) * 100 : 0}%` }} />
-                        </div>
-                        <span className="text-xs text-gray-600 w-16">{t}</span>
-                        <span className="text-xs font-bold w-6 text-right">{c}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-700 mb-2">Treatment Terbanyak</p>
-                    <div className="flex flex-wrap gap-2">
-                      {data.demographics.topTreatments.map((t, i) => (
-                        <Badge key={i} variant="outline" className="text-sm py-1 px-3">{t.name}: <span className="font-bold ml-1">{t.count}</span></Badge>
-                      ))}
-                    </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+              </div>
+            </div>
 
-          {/* SERVQUAL */}
-          <TabsContent value="servqual" className="space-y-6">
-            <div className="grid lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-bold flex items-center gap-2"><BarChart3 className="w-5 h-5 text-emerald-500" /> SERVQUAL Radar Chart</CardTitle>
-                  <CardDescription>Skor rata-rata 5 dimensi (1-5)</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RadarChart data={servqualData} cx="50%" cy="50%" outerRadius="80%">
-                        <PolarGrid stroke="#e5e7eb" />
-                        <PolarAngleAxis dataKey="dimension" tick={{ fontSize: 12 }} />
-                        <PolarRadiusAxis angle={90} domain={[0, 5]} tick={{ fontSize: 10 }} />
-                        <Radar name="Skor" dataKey="score" stroke="#059669" fill="#059669" fillOpacity={0.3} strokeWidth={2} />
-                      </RadarChart>
-                    </ResponsiveContainer>
+            {/* Insight Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Top Diagnosis */}
+              <div className="bg-linear-to-br from-teal-50 to-teal-100 rounded-xl border border-teal-200 p-5">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 bg-teal-600 rounded-lg flex items-center justify-center shrink-0 shadow-sm">
+                    <CheckCircle2 className="w-4 h-4 text-white" />
                   </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-bold">SERVQUAL Detail per Dimensi</CardTitle>
-                  <CardDescription>Skor rata-rata dan persentase kepuasan</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {servqualData.map((item, i) => (
-                    <div key={i} className="space-y-1.5">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-700">{item.dimension}</span>
-                        <span className="text-sm font-bold text-emerald-600">{item.score.toFixed(2)} / 5</span>
+                  <div className="min-w-0">
+                    <p className="font-bold text-teal-800 text-sm font-[family-name:var(--font-display)]">Top Diagnosis</p>
+                    {data.topDiagnosis ? (
+                      <>
+                        <p className="text-teal-700 text-xs mt-1 truncate">{data.topDiagnosis.name}</p>
+                        <p className="text-teal-600 text-[11px] mt-0.5">
+                          {data.topDiagnosis.patientCount} pasien ({data.topDiagnosis.percentage}%) —
+                          Kepuasan {data.topDiagnosis.avgSatisfaction}/5
+                        </p>
+                        {data.diagnosisSatisfactionData.length > 1 && (
+                          <div className="mt-2 space-y-0.5">
+                            {data.diagnosisSatisfactionData.slice(1, 4).map((d, i) => (
+                              <p key={i} className="text-[10px] text-teal-500">
+                                #{i + 2} {d.condition_type} ({d.patientCount})
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-teal-500 text-xs mt-1">Belum ada data</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Perlu Perhatian */}
+              <div className="bg-linear-to-br from-amber-50 to-amber-100 rounded-xl border border-amber-200 p-5">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 bg-amber-500 rounded-lg flex items-center justify-center shrink-0 shadow-sm">
+                    <AlertTriangle className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-amber-800 text-sm font-[family-name:var(--font-display)]">Perlu Perhatian</p>
+                    <p className="text-amber-700 text-xs mt-1">{data.worstServqualDimension.name}</p>
+                    <p className="text-amber-600 text-[11px] mt-0.5">
+                      Skor: {data.worstServqualDimension.score.toFixed(2)}/5 — Target: 4.2
+                    </p>
+                    <p className="text-amber-500 text-[11px] mt-1">
+                      Rekomendasi: Fokus pada perbaikan dimensi ini untuk meningkatkan kualitas layanan.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Spiritual Wellness */}
+              <div className="bg-linear-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200 p-5">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center shrink-0 shadow-sm">
+                    <Shield className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-blue-800 text-sm font-[family-name:var(--font-display)]">Spiritual Wellness</p>
+                    <div className="mt-2 space-y-1">
+                      {spiritualData.map((s) => (
+                        <div key={s.dimension} className="flex items-center justify-between text-[11px]">
+                          <span className="text-blue-600">{s.dimension}</span>
+                          <span className="font-bold text-blue-700">{s.score.toFixed(2)}/5</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-blue-500 text-[11px] mt-1">
+                      Rata-rata: {((data.spiritualAvg.spiritualComfort + data.spiritualAvg.culturalRespect + data.spiritualAvg.familyFeeling) / 3).toFixed(2)}/5
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════
+            TAB: CLINICAL
+        ═══════════════════════════════════════════════════════ */}
+        {activeTab === 'clinical' && (
+          <div className="space-y-6">
+            {/* Charts Row 1 */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Pain Reduction per Diagnosis */}
+              <div className="bg-white rounded-xl border border-slate-200 p-5">
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 font-[family-name:var(--font-display)]">
+                  <Activity className="w-4 h-4 text-red-500" />
+                  Pengurangan Nyeri per Diagnosis
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">Rata-rata penurunan VAS Score (%)</p>
+                <div className="h-72 mt-3">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={[...data.diagnosisPainData].sort((a, b) => b.painReductionPct - a.painReductionPct)}
+                      layout="vertical"
+                      margin={{ left: 20, right: 20, top: 5, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis type="number" tick={{ fontSize: 11 }} stroke="#94a3b8" />
+                      <YAxis type="category" dataKey="condition_type" width={160} tick={{ fontSize: 10 }} stroke="#94a3b8" />
+                      <Tooltip content={<ChartTooltip />} />
+                      <Bar dataKey="painReductionPct" fill={TEAL} radius={[0, 6, 6, 0]} name="Pengurangan Nyeri (%)" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Spiritual & Cultural Wellness Radar */}
+              <div className="bg-white rounded-xl border border-slate-200 p-5">
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 font-[family-name:var(--font-display)]">
+                  <Shield className="w-4 h-4 text-blue-600" />
+                  Spiritual & Cultural Wellness
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">Rata-rata skor spiritual pasien (1-5)</p>
+                <div className="h-72 mt-3">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart data={spiritualData} cx="50%" cy="50%" outerRadius="75%">
+                      <PolarGrid stroke="#e2e8f0" />
+                      <PolarAngleAxis dataKey="dimension" tick={{ fontSize: 11 }} stroke="#64748b" />
+                      <PolarRadiusAxis angle={90} domain={[0, 5]} tick={{ fontSize: 10 }} stroke="#94a3b8" />
+                      <Radar name="Skor" dataKey="score" stroke={TEAL} fill={TEAL} fillOpacity={0.2} strokeWidth={2} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+            {/* Kepuasan & Volume per Diagnosis */}
+            <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 font-[family-name:var(--font-display)]">
+                <BarChart3 className="w-4 h-4 text-teal-600" />
+                Kepuasan & Volume per Diagnosis
+              </h3>
+              <div className="h-72 mt-3">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.diagnosisSatisfactionData} margin={{ left: 20, right: 20, top: 5, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="condition_type" tick={{ fontSize: 10 }} angle={-25} textAnchor="end" height={80} stroke="#94a3b8" />
+                    <YAxis yAxisId="left" tick={{ fontSize: 11 }} stroke="#94a3b8" />
+                    <YAxis yAxisId="right" orientation="right" domain={[0, 5]} tick={{ fontSize: 11 }} stroke="#94a3b8" />
+                    <Tooltip content={<ChartTooltip />} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Bar yAxisId="left" dataKey="patientCount" fill="#94a3b8" radius={[4, 4, 0, 0]} name="Volume Pasien" />
+                    <Bar yAxisId="right" dataKey="avgSatisfaction" fill={TEAL} radius={[4, 4, 0, 0]} name="Kepuasan (1-5)" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Demographics */}
+            <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 font-[family-name:var(--font-display)]">
+                <Users className="w-4 h-4 text-teal-600" />
+                Profil Demografi Pasien
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+                {/* Age Distribution */}
+                <div>
+                  <p className="text-xs font-semibold text-slate-700 mb-2">Kelompok Usia</p>
+                  {Object.entries(data.demographics.ageRangeDistribution).sort((a, b) => b[1] - a[1]).map(([range, c]) => (
+                    <div key={range} className="flex items-center gap-2 mb-1.5">
+                      <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                        <div className="bg-teal-500 rounded-full h-2.5 transition-all" style={{ width: `${data.totalSurveys > 0 ? (c / data.totalSurveys) * 100 : 0}%` }} />
                       </div>
-                      <Progress value={(item.score / 5) * 100} className="h-3" />
+                      <span className="text-[11px] text-slate-600 w-14 shrink-0">{range}</span>
+                      <span className="text-[11px] font-bold w-6 text-right text-slate-700">{c}</span>
                     </div>
                   ))}
-                  <Separator />
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-bold text-gray-800">Overall SERVQUAL</span>
-                      <span className="text-sm font-bold text-emerald-600">{data.servqual.overall.toFixed(2)} / 5</span>
-                    </div>
-                    <Progress value={(data.servqual.overall / 5) * 100} className="h-4" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
+                </div>
 
-          {/* FEEDBACK */}
-          <TabsContent value="feedback" className="space-y-6">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-bold flex items-center gap-2"><MessageCircle className="w-5 h-5 text-emerald-500" /> Feedback Terbaru dari Pasien</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {data.recentFeedback.length === 0 ? (
-                  <p className="text-gray-400 text-center py-8">Belum ada feedback</p>
-                ) : (
-                  data.recentFeedback.map((fb, i) => {
-                    const isPositive = fb.npsScore && fb.npsScore >= 9
-                    const isNegative = fb.npsScore && fb.npsScore <= 6
+                {/* Gender + Patient Type */}
+                <div>
+                  <p className="text-xs font-semibold text-slate-700 mb-2">Gender</p>
+                  {Object.entries(data.demographics.genderDistribution).map(([g, c]) => (
+                    <div key={g} className="flex items-center gap-2 mb-1.5">
+                      <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                        <div className="bg-blue-500 rounded-full h-2.5 transition-all" style={{ width: `${data.totalSurveys > 0 ? (c / data.totalSurveys) * 100 : 0}%` }} />
+                      </div>
+                      <span className="text-[11px] text-slate-600 w-16 shrink-0">{g === 'L' ? 'Laki-laki' : 'Perempuan'}</span>
+                      <span className="text-[11px] font-bold w-6 text-right text-slate-700">{c}</span>
+                    </div>
+                  ))}
+                  <p className="text-xs font-semibold text-slate-700 mt-4 mb-2">Jenis Pasien</p>
+                  {Object.entries(data.demographics.patientTypeDistribution).map(([t, c]) => (
+                    <div key={t} className="flex items-center gap-2 mb-1.5">
+                      <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                        <div className="bg-amber-500 rounded-full h-2.5 transition-all" style={{ width: `${data.totalSurveys > 0 ? (c / data.totalSurveys) * 100 : 0}%` }} />
+                      </div>
+                      <span className="text-[11px] text-slate-600 w-16 shrink-0">{t}</span>
+                      <span className="text-[11px] font-bold w-6 text-right text-slate-700">{c}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Treatments + Herbal */}
+                <div>
+                  <p className="text-xs font-semibold text-slate-700 mb-2">Treatment Terbanyak</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {data.demographics.topTreatments.map((t, i) => (
+                      <span key={i} className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 text-[11px] font-medium px-2.5 py-1 rounded-full">
+                        {t.name} <span className="font-bold text-teal-600">{t.count}</span>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="mt-4 p-3 bg-teal-50 rounded-lg border border-teal-100">
+                    <p className="text-[11px] text-teal-700">
+                      <span className="font-semibold">Herbal Prescribed:</span>
+                      {data.demographics.conditionTypeDistribution && (
+                        <span className="ml-1">
+                          Data tersedia dalam {Object.keys(data.demographics.conditionTypeDistribution).length} kategori diagnosis
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════
+            TAB: SERVQUAL
+        ═══════════════════════════════════════════════════════ */}
+        {activeTab === 'servqual' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Radar Chart */}
+              <div className="bg-white rounded-xl border border-slate-200 p-5">
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 font-[family-name:var(--font-display)]">
+                  <BarChart3 className="w-4 h-4 text-teal-600" />
+                  SERVQUAL Radar Chart
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">Skor rata-rata 5 dimensi (1-5)</p>
+                <div className="h-72 mt-3">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart data={servqualData} cx="50%" cy="50%" outerRadius="75%">
+                      <PolarGrid stroke="#e2e8f0" />
+                      <PolarAngleAxis dataKey="dimension" tick={{ fontSize: 11 }} stroke="#64748b" />
+                      <PolarRadiusAxis angle={90} domain={[0, 5]} tick={{ fontSize: 10 }} stroke="#94a3b8" />
+                      <Radar name="Skor" dataKey="score" stroke={TEAL} fill={TEAL} fillOpacity={0.2} strokeWidth={2} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Progress Bars */}
+              <div className="bg-white rounded-xl border border-slate-200 p-5">
+                <h3 className="text-sm font-bold text-slate-800 font-[family-name:var(--font-display)]">
+                  SERVQUAL Detail per Dimensi
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">Target minimal: 4.2/5</p>
+                <div className="space-y-4 mt-4">
+                  {servqualData.map((item) => {
+                    const belowTarget = item.score < 4.2
                     return (
-                      <div key={i} className={cn('p-4 rounded-xl border', isPositive ? 'bg-emerald-50 border-emerald-200' : isNegative ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200')}>
-                        <div className="space-y-2">
-                          {fb.testimonial && (
-                            <div className="flex items-start gap-2">
-                              <span className="text-emerald-500 text-xs shrink-0 mt-0.5">Testimoni:</span>
-                              <p className="text-sm text-gray-700 leading-relaxed">&ldquo;{fb.testimonial}&rdquo;</p>
-                            </div>
-                          )}
-                          {fb.complaints && (
-                            <div className="flex items-start gap-2">
-                              <span className="text-red-500 text-xs shrink-0 mt-0.5">Keluhan:</span>
-                              <p className="text-sm text-gray-600">{fb.complaints}</p>
-                            </div>
-                          )}
-                          {(fb.suggestions || fb.improvementSuggestion) && (
-                            <div className="flex items-start gap-2">
-                              <span className="text-blue-500 text-xs shrink-0 mt-0.5">Saran:</span>
-                              <p className="text-sm text-gray-600">{fb.suggestions || fb.improvementSuggestion}</p>
-                            </div>
-                          )}
+                      <div key={item.dimension} className="space-y-1.5">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium text-slate-700">{item.dimension}</span>
+                          <span className={`text-sm font-bold ${belowTarget ? 'text-amber-600' : 'text-teal-600'}`}>
+                            {item.score.toFixed(2)} / 5
+                          </span>
                         </div>
-                        <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t border-gray-100">
-                          {fb.npsScore !== null && (
-                            <Badge variant="outline" className={cn('text-xs', isPositive ? 'border-emerald-300 text-emerald-600' : isNegative ? 'border-red-300 text-red-600' : 'border-amber-300 text-amber-600')}>
-                              NPS: {fb.npsScore}
-                            </Badge>
-                          )}
-                          <span className="text-[10px] text-gray-400">{fb.unitName}</span>
+                        <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                          <div
+                            className={`h-2.5 rounded-full transition-all ${belowTarget ? 'bg-amber-500' : 'bg-teal-500'}`}
+                            style={{ width: `${(item.score / 5) * 100}%` }}
+                          />
                         </div>
                       </div>
                     )
-                  })
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* DATA SURVEI */}
-          <TabsContent value="data" className="space-y-4">
-            {/* Filter Bar */}
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Filter className="w-4 h-4 text-gray-500" />
-                  <span className="text-sm font-semibold text-gray-700">Filter & Pencarian</span>
-                  {hasFilters && (
-                    <Button variant="ghost" size="sm" className="text-xs text-red-500 hover:text-red-600 ml-auto" onClick={resetFilters}>
-                      <X className="w-3 h-3 mr-1" /> Reset Filter
-                    </Button>
-                  )}
+                  })}
+                  <div className="border-t border-slate-100 pt-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-bold text-slate-800">Overall SERVQUAL</span>
+                      <span className={`text-sm font-bold ${data.servqual.overall < 4.2 ? 'text-amber-600' : 'text-teal-600'}`}>
+                        {data.servqual.overall.toFixed(2)} / 5
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden mt-1.5">
+                      <div
+                        className={`h-3 rounded-full transition-all ${data.servqual.overall < 4.2 ? 'bg-amber-500' : 'bg-teal-500'}`}
+                        style={{ width: `${(data.servqual.overall / 5) * 100}%` }}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {/* Search */}
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      placeholder="Cari feedback..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      className="pl-8 text-sm"
+              </div>
+            </div>
+
+            {/* Warning Box */}
+            {servqualData.some(d => d.score < 4.2) && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-800">Dimensi di Bawah Target</p>
+                  <p className="text-xs text-amber-600 mt-1">
+                    {servqualData.filter(d => d.score < 4.2).map(d => `${d.dimension} (${d.score.toFixed(2)})`).join(', ')} — perlu perbaikan untuk mencapai target 4.2/5.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════
+            TAB: FEEDBACK
+        ═══════════════════════════════════════════════════════ */}
+        {activeTab === 'feedback' && (
+          <div className="space-y-4">
+            {/* Search + Filter Toggle */}
+            <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Cari testimoni, saran, atau pengalaman..."
+                    value={fbSearch}
+                    onChange={(e) => setFbSearch(e.target.value)}
+                    onFocus={() => setFbFilterOpen(true)}
+                    className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 transition-all"
+                  />
+                </div>
+                <button
+                  onClick={() => setFbFilterOpen(!fbFilterOpen)}
+                  className={`flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg transition-colors ${
+                    fbFilterOpen || fbNpsCategory || fbCondition || fbDateFrom || fbDateTo
+                      ? 'bg-teal-50 border-teal-200 text-teal-700'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <SlidersHorizontal className="w-4 h-4" />
+                  <span className="hidden sm:inline">Filter</span>
+                  {(fbFilterOpen || fbNpsCategory || fbCondition || fbDateFrom || fbDateTo) && (
+                    <ChevronDown className="w-3 h-3" />
+                  )}
+                </button>
+              </div>
+
+              {/* Collapsible Filter Panel */}
+              <div
+                className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                  fbFilterOpen ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'
+                }`}
+              >
+                <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div>
+                    <label className="text-[11px] text-slate-500 font-medium mb-1 block">Kategori NPS</label>
+                    <select
+                      value={fbNpsCategory}
+                      onChange={(e) => setFbNpsCategory(e.target.value)}
+                      className="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                    >
+                      <option value="">Semua</option>
+                      <option value="promoter">Promoter (9-10)</option>
+                      <option value="passive">Passive (7-8)</option>
+                      <option value="detractor">Detractor (0-6)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-slate-500 font-medium mb-1 block">Kondisi/Diagnosis</label>
+                    <select
+                      value={fbCondition}
+                      onChange={(e) => setFbCondition(e.target.value)}
+                      className="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                    >
+                      <option value="">Semua Kondisi</option>
+                      {CONDITION_TYPES.map((ct) => (
+                        <option key={ct} value={ct}>{ct}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-slate-500 font-medium mb-1 block">Dari Tanggal</label>
+                    <input
+                      type="date"
+                      value={fbDateFrom}
+                      onChange={(e) => setFbDateFrom(e.target.value)}
+                      className="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
                     />
                   </div>
-                  {/* Date From */}
-                  <Input
-                    type="date"
-                    placeholder="Dari tanggal"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    className="text-sm"
-                  />
-                  {/* Date To */}
-                  <Input
-                    type="date"
-                    placeholder="Sampai tanggal"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    className="text-sm"
-                  />
-                  {/* Gender */}
-                  <Select value={genderFilter} onValueChange={(v) => setGenderFilter(v === '__all__' ? '' : v)}>
-                    <SelectTrigger className="w-full text-sm">
-                      <SelectValue placeholder="Gender" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__all__">Semua Gender</SelectItem>
-                      <SelectItem value="L">Laki-laki</SelectItem>
-                      <SelectItem value="P">Perempuan</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {/* Condition Type */}
-                  <Select value={conditionFilter} onValueChange={(v) => setConditionFilter(v === '__all__' ? '' : v)}>
-                    <SelectTrigger className="w-full text-sm">
-                      <SelectValue placeholder="Kondisi" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__all__">Semua Kondisi</SelectItem>
-                      {CONDITION_TYPES.map((ct) => (
-                        <SelectItem key={ct} value={ct}>{ct}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {/* NPS Min */}
-                  <Input
-                    type="number"
-                    placeholder="NPS Min (0-10)"
-                    min={0}
-                    max={10}
-                    value={npsMin}
-                    onChange={(e) => setNpsMin(e.target.value)}
-                    className="text-sm"
-                  />
-                  {/* NPS Max */}
-                  <Input
-                    type="number"
-                    placeholder="NPS Max (0-10)"
-                    min={0}
-                    max={10}
-                    value={npsMax}
-                    onChange={(e) => setNpsMax(e.target.value)}
-                    className="text-sm"
-                  />
-                  {/* Export Buttons */}
-                  <div className="flex gap-2">
-                    <a href={getExportUrl('excel')} className="flex-1">
-                      <Button variant="outline" size="sm" className="w-full text-sm border-emerald-300 text-emerald-700 hover:bg-emerald-50">
-                        <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
-                      </Button>
-                    </a>
-                    <a href={getExportUrl('pdf')} className="flex-1">
-                      <Button variant="outline" size="sm" className="w-full text-sm border-blue-300 text-blue-700 hover:bg-blue-50">
-                        <FileText className="w-4 h-4 mr-1" /> PDF
-                      </Button>
-                    </a>
+                  <div>
+                    <label className="text-[11px] text-slate-500 font-medium mb-1 block">Sampai Tanggal</label>
+                    <input
+                      type="date"
+                      value={fbDateTo}
+                      onChange={(e) => setFbDateTo(e.target.value)}
+                      className="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                    />
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+                {(fbNpsCategory || fbCondition || fbDateFrom || fbDateTo || fbSearch) && (
+                  <div className="pt-3 flex justify-end">
+                    <button
+                      onClick={resetFbFilters}
+                      className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1 transition-colors"
+                    >
+                      <X className="w-3 h-3" /> Reset Filter
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Feedback Cards */}
+            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+              {filteredFeedback.length === 0 ? (
+                <div className="text-center py-12">
+                  <MessageCircle className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                  <p className="text-slate-400 text-sm">Belum ada feedback</p>
+                </div>
+              ) : (
+                filteredFeedback.map((fb, i) => {
+                  const isPositive = fb.npsScore !== null && fb.npsScore !== undefined && fb.npsScore >= 9
+                  const isNegative = fb.npsScore !== null && fb.npsScore !== undefined && fb.npsScore <= 6
+                  const borderColor = isPositive ? 'border-l-emerald-500' : isNegative ? 'border-l-red-500' : 'border-l-amber-500'
+                  const bgColor = isPositive ? 'bg-emerald-50/50' : isNegative ? 'bg-red-50/50' : 'bg-white'
+
+                  return (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.03 }}
+                      className={`${bgColor} border border-slate-200 border-l-4 ${borderColor} rounded-xl p-4 space-y-2`}
+                    >
+                      {/* Header */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                            {(i + 1).toString().padStart(2, '0')}
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-slate-700">{fb.unitName}</p>
+                            <p className="text-[10px] text-slate-400">
+                              {new Date(fb.submittedAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {(fb as unknown as Record<string, string>).conditionType && (
+                            <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+                              {(fb as unknown as Record<string, string>).conditionType}
+                            </span>
+                          )}
+                          {fb.npsScore !== null && fb.npsScore !== undefined && (
+                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                              isPositive ? 'bg-emerald-100 text-emerald-700' : isNegative ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              NPS {fb.npsScore}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Content */}
+                      {fb.testimonial && (
+                        <p className="text-sm text-slate-700 leading-relaxed pl-10">
+                          &ldquo;{fb.testimonial}&rdquo;
+                        </p>
+                      )}
+                      {fb.bestExperience && (
+                        <p className="text-sm text-slate-600 pl-10">
+                          <span className="text-emerald-600 font-medium text-xs">Pengalaman Terbaik: </span>
+                          {fb.bestExperience}
+                        </p>
+                      )}
+                      {(fb.suggestions || fb.improvementSuggestion) && (
+                        <div className="bg-blue-50/60 rounded-lg p-3 ml-10">
+                          <p className="text-xs text-blue-800 font-medium">Saran:</p>
+                          <p className="text-sm text-blue-700 mt-0.5">{fb.suggestions || fb.improvementSuggestion}</p>
+                        </div>
+                      )}
+                    </motion.div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════
+            TAB: DATA SURVEI
+        ═══════════════════════════════════════════════════════ */}
+        {activeTab === 'data' && (
+          <div className="space-y-4">
+            {/* Search + Filter Toggle + Export */}
+            <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Cari pasien, feedback..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    onFocus={() => setDataFilterOpen(true)}
+                    className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 transition-all"
+                  />
+                </div>
+                <button
+                  onClick={() => setDataFilterOpen(!dataFilterOpen)}
+                  className={`flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg transition-colors ${
+                    dataFilterOpen || hasSurveysFilters
+                      ? 'bg-teal-50 border-teal-200 text-teal-700'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <Filter className="w-4 h-4" />
+                  <span className="hidden sm:inline">Filter</span>
+                </button>
+                <a href={getExportUrl('excel')} className="flex items-center gap-1.5 px-3 py-2 text-sm border border-emerald-200 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-colors">
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span className="hidden sm:inline">Excel</span>
+                </a>
+                <a href={getExportUrl('pdf')} className="flex items-center gap-1.5 px-3 py-2 text-sm border border-blue-200 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors">
+                  <FileText className="w-4 h-4" />
+                  <span className="hidden sm:inline">PDF</span>
+                </a>
+              </div>
+
+              {/* Collapsible Filter Panel */}
+              <div
+                className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                  dataFilterOpen ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'
+                }`}
+              >
+                <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div>
+                    <label className="text-[11px] text-slate-500 font-medium mb-1 block">Dari Tanggal</label>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-slate-500 font-medium mb-1 block">Sampai Tanggal</label>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-slate-500 font-medium mb-1 block">Gender</label>
+                    <select
+                      value={genderFilter}
+                      onChange={(e) => setGenderFilter(e.target.value)}
+                      className="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                    >
+                      <option value="">Semua</option>
+                      <option value="L">Laki-laki</option>
+                      <option value="P">Perempuan</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-slate-500 font-medium mb-1 block">Kondisi/Diagnosis</label>
+                    <select
+                      value={conditionFilter}
+                      onChange={(e) => setConditionFilter(e.target.value)}
+                      className="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                    >
+                      <option value="">Semua Kondisi</option>
+                      {CONDITION_TYPES.map((ct) => (
+                        <option key={ct} value={ct}>{ct}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-slate-500 font-medium mb-1 block">NPS Min (0-10)</label>
+                    <input
+                      type="number"
+                      value={npsMin}
+                      onChange={(e) => setNpsMin(e.target.value)}
+                      placeholder="0"
+                      min={0}
+                      max={10}
+                      className="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-slate-500 font-medium mb-1 block">NPS Max (0-10)</label>
+                    <input
+                      type="number"
+                      value={npsMax}
+                      onChange={(e) => setNpsMax(e.target.value)}
+                      placeholder="10"
+                      min={0}
+                      max={10}
+                      className="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      onClick={resetSurveysFilters}
+                      className="w-full text-sm text-red-500 hover:text-red-600 flex items-center justify-center gap-1.5 px-3 py-2 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" /> Reset Semua Filter
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* Data Table */}
-            <Card>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-bold flex items-center gap-2">
-                    <Database className="w-5 h-5 text-emerald-500" /> Data Survei Individual
-                  </CardTitle>
-                  {surveysData && (
-                    <span className="text-xs text-gray-500">{surveysData.total} total hasil</span>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 font-[family-name:var(--font-display)]">
+                  <Database className="w-4 h-4 text-teal-600" />
+                  Data Survei Individual
+                </h3>
+                {surveysData && (
+                  <span className="text-[11px] text-slate-500">{surveysData.total} total hasil</span>
+                )}
+              </div>
+
+              <div className="p-0">
                 {surveysLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <RefreshCw className="w-6 h-6 text-emerald-500 animate-spin" />
-                    <span className="ml-2 text-sm text-gray-500">Memuat data...</span>
+                  <div className="flex items-center justify-center py-16">
+                    <RefreshCw className="w-5 h-5 text-teal-500 animate-spin" />
+                    <span className="ml-2 text-sm text-slate-500">Memuat data...</span>
                   </div>
                 ) : !surveysData || surveysData.surveys.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Database className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                    <p className="text-gray-400 text-sm">Tidak ada data survei ditemukan</p>
+                  <div className="text-center py-16">
+                    <Database className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                    <p className="text-slate-400 text-sm">Tidak ada data survei ditemukan</p>
                   </div>
                 ) : (
                   <>
-                    <div className="overflow-x-auto max-h-125 overflow-y-auto">
-                      <Accordion type="single" collapsible className="w-full">
-                        {surveysData.surveys.map((s, i) => {
-                          const no = (surveyPage - 1) * surveysData.pageSize + i + 1
-                          const painBefore = s.pain_level_before
-                          const painAfter = s.pain_level_after
-                          const overallServ = s.tangibles && s.reliability && s.responsiveness && s.assurance && s.empathy
-                            ? ((s.tangibles + s.reliability + s.responsiveness + s.assurance + s.empathy) / 5).toFixed(1)
-                            : '-'
-                          const isPromoter = s.nps_score !== null && s.nps_score >= 9
-                          const isDetractor = s.nps_score !== null && s.nps_score <= 6
+                    <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+                      <table className="w-full text-sm">
+                        <thead className="sticky top-0 z-10">
+                          <tr className="bg-slate-50 border-b border-slate-200 text-left">
+                            <th className="px-3 py-2.5 text-[11px] font-semibold text-slate-500 w-10">#</th>
+                            <th className="px-3 py-2.5 text-[11px] font-semibold text-slate-500">Tanggal</th>
+                            <th className="px-3 py-2.5 text-[11px] font-semibold text-slate-500">Usia</th>
+                            <th className="px-3 py-2.5 text-[11px] font-semibold text-slate-500">Gender</th>
+                            <th className="px-3 py-2.5 text-[11px] font-semibold text-slate-500">Diagnosis</th>
+                            <th className="px-3 py-2.5 text-[11px] font-semibold text-slate-500">NPS</th>
+                            <th className="px-3 py-2.5 text-[11px] font-semibold text-slate-500">Nyeri Sblm</th>
+                            <th className="px-3 py-2.5 text-[11px] font-semibold text-slate-500">Nyeri Ssd</th>
+                            <th className="px-3 py-2.5 text-[11px] font-semibold text-slate-500">SERVQUAL</th>
+                            <th className="px-3 py-2.5 text-[11px] font-semibold text-slate-500 w-16"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {surveysData.surveys.map((s, i) => {
+                            const no = (surveyPage - 1) * surveysData.pageSize + i + 1
+                            const isPromoter = s.nps_score !== null && s.nps_score >= 9
+                            const isDetractor = s.nps_score !== null && s.nps_score <= 6
+                            const overallServ = s.tangibles && s.reliability && s.responsiveness && s.assurance && s.empathy
+                              ? ((s.tangibles + s.reliability + s.responsiveness + s.assurance + s.empathy) / 5).toFixed(1)
+                              : null
+                            const isExpanded = expandedRow === s.id
 
-                          return (
-                            <AccordionItem key={s.id} value={s.id}>
-                              <AccordionTrigger className="hover:bg-gray-50 px-3 rounded-lg">
-                                <div className="grid grid-cols-8 gap-2 w-full text-left text-xs sm:text-sm items-center">
-                                  <span className="font-medium text-gray-500 w-8">{no}</span>
-                                  <span className="text-gray-700 truncate">{s.submitted_at ? new Date(s.submitted_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</span>
-                                  <span className="text-gray-700 truncate">{s.age_range || '-'}</span>
-                                  <span className="text-gray-700">{s.gender === 'L' ? 'L' : s.gender === 'P' ? 'P' : '-'}</span>
-                                  <span className="text-gray-700 truncate max-w-30">{s.condition_type || '-'}</span>
-                                  <Badge variant="outline" className={cn('text-xs justify-center', isPromoter ? 'border-emerald-300 text-emerald-700' : isDetractor ? 'border-red-300 text-red-700' : 'border-gray-300 text-gray-600')}>
-                                    {s.nps_score ?? '-'}
-                                  </Badge>
-                                  <span className="text-gray-600 text-xs">{painBefore !== null ? `${painBefore}→${painAfter ?? '-'}` : '-'}</span>
-                                  <span className={cn('font-semibold text-xs', parseFloat(overallServ as string) >= 4 ? 'text-emerald-600' : parseFloat(overallServ as string) >= 3 ? 'text-amber-600' : 'text-red-600')}>
-                                    {overallServ}/5
-                                  </span>
-                                </div>
-                              </AccordionTrigger>
-                              <AccordionContent>
-                                <div className="bg-gray-50 rounded-lg p-4 mx-3 mb-2 space-y-3 text-sm">
-                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                    <div>
-                                      <span className="text-xs text-gray-500 block">Pendidikan</span>
-                                      <span className="font-medium">{s.education || '-'}</span>
-                                    </div>
-                                    <div>
-                                      <span className="text-xs text-gray-500 block">Pekerjaan</span>
-                                      <span className="font-medium">{s.occupation || '-'}</span>
-                                    </div>
-                                    <div>
-                                      <span className="text-xs text-gray-500 block">Jenis Pasien</span>
-                                      <span className="font-medium">{s.patient_type || '-'}</span>
-                                    </div>
-                                    <div>
-                                      <span className="text-xs text-gray-500 block">Kunjungan</span>
-                                      <span className="font-medium">{s.visit_count || '-'}</span>
-                                    </div>
-                                    <div>
-                                      <span className="text-xs text-gray-500 block">Herbal</span>
-                                      <span className="font-medium">{s.herbal_prescribed ? 'Ya' : 'Tidak'}</span>
-                                    </div>
-                                    <div>
-                                      <span className="text-xs text-gray-500 block">Perubahan Kondisi</span>
-                                      <span className="font-medium">{s.condition_change || '-'}</span>
-                                    </div>
-                                    <div>
-                                      <span className="text-xs text-gray-500 block">Rencana Kunjungan</span>
-                                      <span className="font-medium">{s.visit_plan || '-'}</span>
-                                    </div>
-                                    <div>
-                                      <span className="text-xs text-gray-500 block">Sudah Rekomendasi</span>
-                                      <span className="font-medium">{s.has_recommended || '-'}</span>
-                                    </div>
-                                  </div>
-                                  <Separator />
-                                  <div>
-                                    <span className="text-xs text-gray-500 block mb-1">SERVQUAL</span>
-                                    <div className="grid grid-cols-5 gap-2 text-xs">
-                                      <div className="text-center"><span className="block text-gray-500">Tan.</span><span className="font-bold">{s.tangibles ?? '-'}</span></div>
-                                      <div className="text-center"><span className="block text-gray-500">Rel.</span><span className="font-bold">{s.reliability ?? '-'}</span></div>
-                                      <div className="text-center"><span className="block text-gray-500">Resp.</span><span className="font-bold">{s.responsiveness ?? '-'}</span></div>
-                                      <div className="text-center"><span className="block text-gray-500">Ass.</span><span className="font-bold">{s.assurance ?? '-'}</span></div>
-                                      <div className="text-center"><span className="block text-gray-500">Emp.</span><span className="font-bold">{s.empathy ?? '-'}</span></div>
-                                    </div>
-                                  </div>
-                                  {(s.best_experience || s.improvement_suggestion || s.testimonial) && (
-                                    <>
-                                      <Separator />
-                                      <div className="space-y-2">
-                                        {s.best_experience && (
-                                          <div><span className="text-xs text-emerald-600 font-semibold">Pengalaman Terbaik:</span><p className="text-gray-700 mt-0.5">{s.best_experience}</p></div>
-                                        )}
-                                        {s.improvement_suggestion && (
-                                          <div><span className="text-xs text-amber-600 font-semibold">Saran Perbaikan:</span><p className="text-gray-700 mt-0.5">{s.improvement_suggestion}</p></div>
-                                        )}
-                                        {s.testimonial && (
-                                          <div><span className="text-xs text-blue-600 font-semibold">Testimoni:</span><p className="text-gray-700 mt-0.5 italic">&ldquo;{s.testimonial}&rdquo;</p></div>
+                            return (
+                              <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                                <td colSpan={10} className="p-0">
+                                  {/* Main Row */}
+                                  <button
+                                    onClick={() => setExpandedRow(isExpanded ? null : s.id)}
+                                    className="w-full text-left px-3 py-3 flex items-center gap-0 cursor-pointer"
+                                  >
+                                    <span className="font-medium text-slate-400 w-10 text-xs shrink-0">{no}</span>
+                                    <span className="text-slate-700 text-xs w-24 shrink-0">
+                                      {s.submitted_at ? new Date(s.submitted_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}
+                                    </span>
+                                    <span className="text-slate-600 text-xs w-16 shrink-0">{s.age_range || '-'}</span>
+                                    <span className="text-slate-600 text-xs w-14 shrink-0">
+                                      {s.gender === 'L' ? 'L' : s.gender === 'P' ? 'P' : '-'}
+                                    </span>
+                                    <span className="text-slate-600 text-xs flex-1 min-w-0 truncate">
+                                      {s.condition_type || '-'}
+                                    </span>
+                                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full w-10 text-center shrink-0 ${
+                                      isPromoter ? 'bg-emerald-100 text-emerald-700' : isDetractor ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                                    }`}>
+                                      {s.nps_score ?? '-'}
+                                    </span>
+                                    <span className="text-slate-500 text-xs w-14 text-center shrink-0">
+                                      {s.pain_level_before ?? '-'}
+                                    </span>
+                                    <span className="text-slate-500 text-xs w-14 text-center shrink-0">
+                                      {s.pain_level_after ?? '-'}
+                                    </span>
+                                    <span className={`text-xs font-bold w-16 text-center shrink-0 ${
+                                      overallServ && parseFloat(overallServ) >= 4 ? 'text-teal-600' : overallServ && parseFloat(overallServ) >= 3 ? 'text-amber-600' : 'text-red-600'
+                                    }`}>
+                                      {overallServ ? `${overallServ}/5` : '-'}
+                                    </span>
+                                    <span className="w-16 flex justify-center shrink-0">
+                                      <Eye className="w-4 h-4 text-slate-400" />
+                                    </span>
+                                  </button>
+
+                                  {/* Expanded Detail */}
+                                  <div
+                                    className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                                      isExpanded ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'
+                                    }`}
+                                  >
+                                    <div className="px-3 pb-4 pt-1">
+                                      <div className="bg-slate-50 rounded-lg p-4 space-y-3 text-sm">
+                                        {/* Demographics Grid */}
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                          <div>
+                                            <span className="text-[11px] text-slate-400 block">Pendidikan</span>
+                                            <span className="text-xs font-medium text-slate-700">{s.education || '-'}</span>
+                                          </div>
+                                          <div>
+                                            <span className="text-[11px] text-slate-400 block">Pekerjaan</span>
+                                            <span className="text-xs font-medium text-slate-700">{s.occupation || '-'}</span>
+                                          </div>
+                                          <div>
+                                            <span className="text-[11px] text-slate-400 block">Jenis Pasien</span>
+                                            <span className="text-xs font-medium text-slate-700">{s.patient_type || '-'}</span>
+                                          </div>
+                                          <div>
+                                            <span className="text-[11px] text-slate-400 block">Kunjungan</span>
+                                            <span className="text-xs font-medium text-slate-700">{s.visit_count || '-'}</span>
+                                          </div>
+                                          <div>
+                                            <span className="text-[11px] text-slate-400 block">Herbal</span>
+                                            <span className="text-xs font-medium text-slate-700">{s.herbal_prescribed ? 'Ya' : 'Tidak'}</span>
+                                          </div>
+                                          <div>
+                                            <span className="text-[11px] text-slate-400 block">Perubahan Kondisi</span>
+                                            <span className="text-xs font-medium text-slate-700">{s.condition_change || '-'}</span>
+                                          </div>
+                                          <div>
+                                            <span className="text-[11px] text-slate-400 block">Rencana Kunjungan</span>
+                                            <span className="text-xs font-medium text-slate-700">{s.visit_plan || '-'}</span>
+                                          </div>
+                                          <div>
+                                            <span className="text-[11px] text-slate-400 block">Sudah Rekomendasi</span>
+                                            <span className="text-xs font-medium text-slate-700">{s.has_recommended || '-'}</span>
+                                          </div>
+                                        </div>
+
+                                        <div className="border-t border-slate-200 pt-3">
+                                          <span className="text-[11px] text-slate-400 block mb-2">SERVQUAL Scores</span>
+                                          <div className="flex flex-wrap gap-2">
+                                            {[
+                                              { label: 'Tangibles', value: s.tangibles },
+                                              { label: 'Reliability', value: s.reliability },
+                                              { label: 'Responsiveness', value: s.responsiveness },
+                                              { label: 'Assurance', value: s.assurance },
+                                              { label: 'Empathy', value: s.empathy },
+                                            ].map((dim) => (
+                                              <span
+                                                key={dim.label}
+                                                className={`text-[11px] font-medium px-2.5 py-1 rounded-full ${
+                                                  dim.value !== null && dim.value >= 4
+                                                    ? 'bg-teal-50 text-teal-700 border border-teal-200'
+                                                    : dim.value !== null && dim.value >= 3
+                                                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                                    : 'bg-slate-100 text-slate-500 border border-slate-200'
+                                                }`}
+                                              >
+                                                {dim.label}: {dim.value ?? '-'}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+
+                                        {/* Testimonial / Best Experience / Suggestion */}
+                                        {(s.best_experience || s.improvement_suggestion || s.testimonial) && (
+                                          <div className="border-t border-slate-200 pt-3 space-y-2">
+                                            {s.best_experience && (
+                                              <div>
+                                                <span className="text-[11px] text-teal-600 font-semibold block">Pengalaman Terbaik:</span>
+                                                <p className="text-xs text-slate-700 mt-0.5">{s.best_experience}</p>
+                                              </div>
+                                            )}
+                                            {s.improvement_suggestion && (
+                                              <div>
+                                                <span className="text-[11px] text-amber-600 font-semibold block">Saran Perbaikan:</span>
+                                                <p className="text-xs text-slate-700 mt-0.5">{s.improvement_suggestion}</p>
+                                              </div>
+                                            )}
+                                            {s.testimonial && (
+                                              <div>
+                                                <span className="text-[11px] text-blue-600 font-semibold block">Testimoni:</span>
+                                                <p className="text-xs text-slate-700 mt-0.5 italic">&ldquo;{s.testimonial}&rdquo;</p>
+                                              </div>
+                                            )}
+                                          </div>
                                         )}
                                       </div>
-                                    </>
-                                  )}
-                                </div>
-                              </AccordionContent>
-                            </AccordionItem>
-                          )
-                        })}
-                      </Accordion>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
                     </div>
 
                     {/* Pagination */}
                     {surveysData.totalPages > 1 && (
-                      <div className="flex items-center justify-between pt-4 border-t">
-                        <span className="text-xs text-gray-500">
+                      <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50/50">
+                        <span className="text-xs text-slate-500">
                           Halaman {surveyPage} dari {surveysData.totalPages} ({surveysData.total} total)
                         </span>
                         <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
+                          <button
                             disabled={surveyPage <= 1}
                             onClick={() => fetchSurveys(surveyPage - 1)}
-                            className="text-xs"
+                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-slate-200 rounded-lg bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                           >
-                            <ChevronLeft className="w-4 h-4" /> Sebelumnya
-                          </Button>
-                          <span className="text-sm font-medium px-3">{surveyPage}</span>
-                          <Button
-                            variant="outline"
-                            size="sm"
+                            <ChevronLeft className="w-3.5 h-3.5" /> Sebelumnya
+                          </button>
+                          <span className="text-sm font-medium px-3 text-slate-700">{surveyPage}</span>
+                          <button
                             disabled={surveyPage >= surveysData.totalPages}
                             onClick={() => fetchSurveys(surveyPage + 1)}
-                            className="text-xs"
+                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-slate-200 rounded-lg bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                           >
-                            Berikutnya <ChevronRight className="w-4 h-4" />
-                          </Button>
+                            Berikutnya <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
                     )}
                   </>
                 )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   )
 }

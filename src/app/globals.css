@@ -136,3 +136,23 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: oklch(0.6 0.1 160);
 }
+
+/* ─── Landing Page: Clinical Precision ─── */
+html { scroll-behavior: smooth; }
+
+.lp-font-display { font-family: var(--font-display), system-ui, sans-serif; }
+.lp-font-body { font-family: var(--font-body), system-ui, sans-serif; }
+
+/* Scrollbar hide for horizontal sections */
+.lp-no-scrollbar::-webkit-scrollbar { display: none; }
+.lp-no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Metric card accent line on hover */
+.lp-metric-card .lp-accent-line {
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.5s ease;
+}
+.lp-metric-card:hover .lp-accent-line {
+  transform: scaleX(1);
+}

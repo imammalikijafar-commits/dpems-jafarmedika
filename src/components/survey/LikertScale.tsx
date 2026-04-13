@@ -10,7 +10,6 @@ interface LikertScaleProps {
 }
 
 const defaultLabels = ['😞', '😕', '😐', '😊', '😍']
-// Text matching Kuesioner SERVQUAL: 1 = Sangat Tidak Setuju ... 5 = Sangat Setuju
 const defaultText = ['Sangat Tidak Setuju', 'Tidak Setuju', 'Netral', 'Setuju', 'Sangat Setuju']
 
 export default function LikertScale({
@@ -27,32 +26,40 @@ export default function LikertScale({
 
   return (
     <div className="flex flex-wrap gap-2 justify-center">
-      {options.map((opt) => (
-        <button
-          key={opt.value}
-          type="button"
-          disabled={disabled}
-          onClick={() => onChange(opt.value)}
-          className={cn(
-            'flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all min-w-[64px]',
-            'hover:scale-105 active:scale-95',
-            value === opt.value
-              ? 'border-emerald-500 bg-emerald-50 shadow-md scale-105'
-              : 'border-gray-200 bg-white hover:border-emerald-300'
-          )}
-        >
-          <span className="text-3xl">{opt.emoji}</span>
-          <span className="text-xs font-medium text-gray-500">{opt.value}</span>
-          <span
+      {options.map((opt) => {
+        const isSelected = value === opt.value
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange(opt.value)}
             className={cn(
-              'text-[11px] leading-tight text-center',
-              value === opt.value ? 'text-emerald-700 font-semibold' : 'text-gray-400'
+              'flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all min-w-[68px]',
+              'hover:scale-105 active:scale-95',
+              isSelected
+                ? 'border-teal-500 bg-teal-50 shadow-md shadow-teal-500/10 scale-105'
+                : 'border-slate-200 bg-white hover:border-teal-300 hover:bg-teal-50/50'
             )}
           >
-            {opt.text}
-          </span>
-        </button>
-      ))}
+            <span className="text-3xl">{opt.emoji}</span>
+            <span className={cn(
+              'text-xs font-bold tabular-nums',
+              isSelected ? 'text-teal-700' : 'text-slate-400'
+            )}>
+              {opt.value}
+            </span>
+            <span
+              className={cn(
+                'text-[11px] leading-tight text-center max-w-[70px]',
+                isSelected ? 'text-teal-700 font-semibold' : 'text-slate-400'
+              )}
+            >
+              {opt.text}
+            </span>
+          </button>
+        )
+      })}
     </div>
   )
 }

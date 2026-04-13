@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Bricolage_Grotesque, DM_Sans } from 'next/font/google'
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -12,6 +13,19 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+const bricolage = Bricolage_Grotesque({
+  variable: '--font-display',
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700', '800'],
+})
+
+const dmSans = DM_Sans({
+  variable: '--font-body',
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  style: ['normal', 'italic'],
+})
 
 export const metadata: Metadata = {
   title: "DPEMS - Digital Patient Experience Monitoring System | RSU Ja'far Medika",
@@ -41,7 +55,7 @@ export default function RootLayout({
   return (
     <html lang="id" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${geistSans.variable} ${geistMono.variable} ${bricolage.variable} ${dmSans.variable} antialiased bg-background text-foreground`}
       >
         {children}
         <Toaster />

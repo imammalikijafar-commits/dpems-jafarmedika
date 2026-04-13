@@ -137,6 +137,27 @@ export interface Alert {
 
 // --- API Response Types ---
 
+export interface DiagnosisPainData {
+  condition_type: string
+  avgPainBefore: number
+  avgPainAfter: number
+  painReductionPct: number
+  patientCount: number
+}
+
+export interface DiagnosisSatisfactionData {
+  condition_type: string
+  avgSatisfaction: number
+  patientCount: number
+}
+
+export interface TopDiagnosis {
+  name: string
+  patientCount: number
+  percentage: number
+  avgSatisfaction: number
+}
+
 export interface DashboardData {
   totalSurveys: number
   avgPainReduction: number
@@ -190,4 +211,9 @@ export interface DashboardData {
   responseRate: number
   overallSatisfaction: number
   hospital: Hospital
+  // Diagnosis-level analytics
+  diagnosisPainData: DiagnosisPainData[]
+  diagnosisSatisfactionData: DiagnosisSatisfactionData[]
+  topDiagnosis: TopDiagnosis | null
+  worstServqualDimension: { name: string; score: number }
 }
