@@ -22,6 +22,6 @@ Work Log:
 Stage Summary:
 - DPEMS MVP is fully functional at / (landing), /dashboard, /survey/[unitId], /qr-codes
 - Demo data shows: 37 surveys in 30 days, 58.4% pain reduction, NPS +22, SERVQUAL 4.18/5
-- Top performing unit: Poli Herbal & Kelor (4.42/5 satisfaction)
+- Top performing unit: Poli Herbal (4.42/5 satisfaction)
 - All text in Bahasa Indonesia, mobile-first design, large fonts for elderly patients
 - Emerald/green theme consistent with Islamic healthcare branding

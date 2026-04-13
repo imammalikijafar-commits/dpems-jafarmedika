@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 36" fill="none">
+  <defs>
+    <linearGradient id="iconGrad" x1="0" y1="0" x2="18" y2="36" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2DD4BF"/>
+      <stop offset="100%" stop-color="#0D9488"/>
+    </linearGradient>
+  </defs>
+  <!-- Icon: Rounded square with "D" + medical cross hint -->
+  <rect x="1" y="1" width="34" height="34" rx="10" fill="url(#iconGrad)"/>
+  <!-- Stylized D lettermark -->
+  <path d="M12 11h7.5a6.5 6.5 0 1 1 0 14H12V11z" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="12" y1="18" x2="18" y2="18" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
+  <!-- Text: DPEMS -->
+  <text x="44" y="15" font-family="'Inter','Segoe UI',system-ui,-apple-system,sans-serif" font-weight="700" font-size="14" fill="#FFFFFF" letter-spacing="0.08em">DPEMS</text>
+  <text x="44" y="29" font-family="'Inter','Segoe UI',system-ui,-apple-system,sans-serif" font-weight="400" font-size="9" fill="#94A3B8" letter-spacing="0.02em">Patient Experience Monitoring</text>
+</svg>

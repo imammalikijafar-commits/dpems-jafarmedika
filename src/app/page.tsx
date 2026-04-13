@@ -207,25 +207,11 @@ function Navbar() {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5">
-            <span
-              className="flex h-9 w-9 items-center justify-center rounded-lg"
-              style={{
-                background: `linear-gradient(135deg, ${TEAL.deep}, ${TEAL.bright})`,
-              }}
-            >
-              <Cross className="h-5 w-5 text-white" />
-            </span>
-            <div className="hidden sm:block">
-              <p
-                className="text-sm font-bold leading-tight text-white lp-font-display"
-                style={{ letterSpacing: '0.02em' }}
-              >
-                DPEMS
-              </p>
-              <p className="text-[11px] leading-tight" style={{ color: SLATE[400] }}>
-                RSU Ja&apos;far Medika · Karanganyar
-              </p>
-            </div>
+            <img
+              src="/logo-dpems.svg"
+              alt="DPEMS Logo"
+              className="h-9 w-auto"
+            />
           </Link>
 
           {/* Desktop Links */}
@@ -464,7 +450,7 @@ function HeroSection() {
           transition={{ duration: 0.6, delay: 0.5, ease: EASE_OUT }}
         >
           Mengukur &amp; meningkatkan kualitas layanan integratif — akupunktur,
-          herbal kelor, dan rehabilitasi stroke — dengan pendekatan
+          herbal, dan rehabilitasi stroke — dengan pendekatan
           evidence-based dan islamic holistic care.
         </motion.p>
 
@@ -1310,10 +1296,13 @@ function FooterSection() {
               className="lp-font-display text-base font-bold"
               style={{ color: '#FFFFFF' }}
             >
-              Imam Maliki
+              Imam Maliki Ja&apos;far
             </p>
             <p className="mt-1 text-sm lp-font-body" style={{ color: SLATE[500] }}>
-              Program Studi Magister
+              Program Studi Magister Administrasi Rumah Sakit (MARS)
+            </p>
+            <p className="mt-1 text-sm lp-font-body" style={{ color: SLATE[500] }}>
+              Universitas Muhammadiyah Surakarta (UMS)
             </p>
             <p className="text-sm lp-font-body" style={{ color: SLATE[500] }}>
               RSU Ja&apos;far Medika

@@ -37,13 +37,13 @@ export const metadata: Metadata = {
     "RSU Ja'far Medika",
     "Integrative Medicine",
     "Akupuntur",
-    "Herbal Kelor",
+    "Herbal",
     "Stroke Rehabilitation",
     "SERVQUAL",
   ],
-  authors: [{ name: "Imam Maliki" }],
+  authors: [{ name: "Imam Maliki Ja'far" }],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: '/icon.svg',
   },
 };
 

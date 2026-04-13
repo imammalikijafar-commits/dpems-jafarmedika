@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Shield, FileText, Lock, ArrowRight, Cross, ArrowLeft } from 'lucide-react'
+import { Shield, FileText, Lock, ArrowRight, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const EASE_OUT = [0.25, 0.46, 0.45, 0.94] as [number, number, number, number]
@@ -42,9 +42,7 @@ export default function ConsentPage() {
       >
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shadow-sm shadow-teal-500/20">
-              <Cross className="w-4 h-4 text-white" />
-            </div>
+            <img src="/logo-dpems-icon.svg" alt="" className="w-9 h-9" />
             <div>
               <p className="text-[11px] text-slate-400 font-medium font-[family-name:var(--font-body)]">RSU Ja&apos;far Medika</p>
               <p className="text-sm font-bold text-slate-800 font-[family-name:var(--font-display)]">Informed Consent</p>
@@ -121,8 +119,8 @@ export default function ConsentPage() {
               <div>
                 <h3 className="font-bold text-slate-800 mb-2 font-[family-name:var(--font-display)]">2. Peneliti</h3>
                 <p>
-                  <strong>Peneliti Utama:</strong> Imam Maliki<br />
-                  <strong>Institusi:</strong> Program Studi Magister<br />
+                  <strong>Peneliti Utama:</strong> Imam Maliki Ja&apos;far<br />
+                  <strong>Institusi:</strong> Program Studi Magister Administrasi Rumah Sakit (MARS) Universitas Muhammadiyah Surakarta (UMS)<br />
                   <strong>Tempat Penelitian:</strong> Poli Akupuntur &amp; Herbal, RSU Ja&apos;far Medika, Mojogedang, Karanganyar, Jawa Tengah
                 </p>
               </div>
@@ -131,7 +129,7 @@ export default function ConsentPage() {
               <div>
                 <h3 className="font-bold text-slate-800 mb-2 font-[family-name:var(--font-display)]">3. Tujuan Penelitian</h3>
                 <p>
-                  Penelitian ini bertujuan mengembangkan dan menguji sistem digital untuk mengukur pengalaman pasien terhadap layanan kedokteran integratif (akupuntur dan herbal/kelor) secara komprehensif. Sistem ini mencakup penilaian kualitas layanan (SERVQUAL), pemantauan tingkat nyeri (VAS), indeks perawatan spiritual, serta loyalitas pasien (NPS). Hasil penelitian diharapkan dapat membantu rumah sakit dalam meningkatkan mutu pelayanan secara berbasis bukti.
+                  Penelitian ini bertujuan mengembangkan dan menguji sistem digital untuk mengukur pengalaman pasien terhadap layanan kedokteran integratif (akupuntur dan herbal) secara komprehensif. Sistem ini mencakup penilaian kualitas layanan (SERVQUAL), pemantauan tingkat nyeri (VAS), indeks perawatan spiritual, serta loyalitas pasien (NPS). Hasil penelitian diharapkan dapat membantu rumah sakit dalam meningkatkan mutu pelayanan secara berbasis bukti.
                 </p>
               </div>
 
@@ -199,8 +197,8 @@ export default function ConsentPage() {
                   Jika Anda memiliki pertanyaan atau memerlukan informasi lebih lanjut terkait penelitian ini, Anda dapat menghubungi:
                 </p>
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/60 space-y-1">
-                  <p><strong className="text-slate-700">Peneliti:</strong> Imam Maliki</p>
-                  <p><strong className="text-slate-700">Institusi:</strong> Program Studi Magister</p>
+                  <p><strong className="text-slate-700">Peneliti:</strong> Imam Maliki Ja&apos;far</p>
+                  <p><strong className="text-slate-700">Institusi:</strong> Program Studi Magister Administrasi Rumah Sakit (MARS) Universitas Muhammadiyah Surakarta (UMS)</p>
                   <p><strong className="text-slate-700">Tempat:</strong> Poli Akupuntur &amp; Herbal, RSU Ja&apos;far Medika</p>
                 </div>
               </div>

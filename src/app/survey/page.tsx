@@ -300,9 +300,7 @@ export default function SurveyPage() {
         <div className="bg-white/80 border-b border-slate-100">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shadow-sm shadow-teal-500/20">
-                <Hospital className="w-4 h-4 text-white" />
-              </div>
+              <img src="/logo-dpems-icon.svg" alt="" className="w-9 h-9" />
               <div>
                 <p className="text-[11px] text-slate-400 font-medium font-[family-name:var(--font-body)]">RSU Ja&apos;far Medika</p>
                 <p className="text-sm font-bold text-slate-800 font-[family-name:var(--font-display)]">Poli Akupuntur & Herbal</p>

@@ -334,6 +334,7 @@ export default function DashboardPage() {
             >
               <Home className="w-4 h-4" />
             </a>
+            <img src="/logo-dpems-icon.svg" alt="" className="h-7 w-7" />
             <h1 className="text-base lg:text-lg font-bold text-white tracking-tight font-[family-name:var(--font-display)]">
               DPEMS Dashboard
             </h1>

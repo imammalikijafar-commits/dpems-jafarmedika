@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Eye, EyeOff, Loader2, Cross, Shield, BarChart3, Users, Heart, Lock, ArrowLeft } from 'lucide-react'
+import { Eye, EyeOff, Loader2, Shield, BarChart3, Users, Heart, Lock, ArrowLeft } from 'lucide-react'
 
 /* ════════════════════════════════════════════════════════════════════
    DESIGN TOKENS (matching landing page + dashboard)
@@ -132,21 +132,9 @@ export default function LoginPageClient() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: EASE_OUT }}
-              className="flex items-center gap-3"
+              className="flex items-center"
             >
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center shadow-lg"
-                style={{ background: `linear-gradient(135deg, ${TEAL.medium}, ${TEAL.bright})` }}
-              >
-                <Cross className="w-5 h-5 text-white" strokeWidth={2.5} />
-              </div>
-              <div>
-                <h1 className="font-[family-name:var(--font-display)] font-bold text-white text-base leading-tight tracking-tight">
-                  DPEMS
-                </h1>
-                <p className="text-[11px] leading-tight" style={{ color: TEAL.light }}>
-                  Digital Patient Experience Monitoring System
-                </p>
-              </div>
+              <img src="/logo-dpems.svg" alt="DPEMS Logo" className="h-11 w-auto" />
             </motion.div>
           </div>
 
@@ -163,7 +151,7 @@ export default function LoginPageClient() {
                 <span style={{ color: TEAL.bright }}>Layanan Pasien</span>
               </h2>
               <p className="text-slate-400 text-sm mt-3 leading-relaxed max-w-sm">
-                Platform analitik berbasis SERVQUAL untuk pengukuran kepuasan pasien layanan integratif — akupuntur, herbal kelor, dan rehabilitasi stroke.
+                Platform analitik berbasis SERVQUAL untuk pengukuran kepuasan pasien layanan integratif — akupuntur, herbal, dan rehabilitasi stroke.
               </p>
             </div>
 
@@ -259,19 +247,9 @@ export default function LoginPageClient() {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, ease: EASE_OUT }}
-              className="inline-flex items-center gap-3 mb-4"
+              className="inline-flex"
             >
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center shadow-lg"
-                style={{ background: `linear-gradient(135deg, ${TEAL.medium}, ${TEAL.bright})` }}
-              >
-                <Cross className="w-5 h-5 text-white" strokeWidth={2.5} />
-              </div>
-              <div className="text-left">
-                <h1 className="font-[family-name:var(--font-display)] font-bold text-slate-900 text-base tracking-tight">
-                  DPEMS
-                </h1>
-                <p className="text-[11px] text-slate-500 leading-tight">RSU Ja&apos;far Medika</p>
-              </div>
+              <img src="/logo-dpems.svg" alt="DPEMS Logo" className="h-11 w-auto" />
             </motion.div>
           </div>
 
