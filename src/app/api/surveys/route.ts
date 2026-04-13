@@ -46,8 +46,29 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    // Validate with Zod
-    const result = fullSurveySchema.safeParse(body)
+    // Auto-detect device type
+    const userAgent = request.headers.get('user-agent') || ''
+    const deviceType = /Mobile|Android|iPhone/i.test(userAgent) ? 'mobile' : 'desktop'
+
+    // Auto-set unit_id to Poli Akupuntur & Herbal (BEFORE validation)
+    const unit = await getUnitByQrCode(ACUPUNTUR_HERBAL_QR)
+    if (!unit) {
+      console.error('Akupuntur-Herbal unit not found in database')
+      return NextResponse.json(
+        { error: 'Unit akupuntur-herbal belum terdaftar di sistem' },
+        { status: 500 }
+      )
+    }
+
+    // Build full payload with unit_id + device_type BEFORE validation
+    const fullBody = {
+      ...body,
+      unit_id: unit.id,
+      device_type: body.device_type || deviceType,
+    }
+
+    // Validate with Zod (now unit_id is present)
+    const result = fullSurveySchema.safeParse(fullBody)
     if (!result.success) {
       return NextResponse.json(
         {
@@ -61,28 +82,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Auto-detect device type
-    const userAgent = request.headers.get('user-agent') || ''
-    const deviceType = /Mobile|Android|iPhone/i.test(userAgent) ? 'mobile' : 'desktop'
-
-    // Auto-set unit_id to Poli Akupuntur & Herbal
-    const unit = await getUnitByQrCode(ACUPUNTUR_HERBAL_QR)
-    if (!unit) {
-      console.error('Akupuntur-Herbal unit not found in database')
-      return NextResponse.json(
-        { error: 'Unit akupuntur-herbal belum terdaftar di sistem' },
-        { status: 500 }
-      )
-    }
-
-    // Build insert payload
-    const payload = {
-      ...body,
-      unit_id: unit.id,
-      device_type: body.device_type || deviceType,
-    }
-
-    const survey = await createSurvey(payload)
+    const survey = await createSurvey(fullBody)
     return NextResponse.json(survey, { status: 201 })
   } catch (error) {
     console.error('Error creating survey:', error)
